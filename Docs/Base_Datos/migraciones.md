@@ -1,0 +1,3 @@
+# Migraciones
+
+Pendiente por definir.
