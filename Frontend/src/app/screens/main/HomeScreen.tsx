@@ -10,6 +10,7 @@ import {
   User as UserIcon
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
+import { useAuth } from "../../providers/AuthProvider";
 
 const healthData = [
   {
@@ -47,6 +48,13 @@ const healthData = [
 ];
 
 export function HomeScreen() {
+  const { profile, user } = useAuth();
+  const displayName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "there";
+
   return (
     <div className="p-6 pt-8">
       {/* Header */}
@@ -58,7 +66,7 @@ export function HomeScreen() {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-2xl font-light text-gray-800">Welcome back</h1>
-            <p className="text-sm text-gray-500 mt-1">Sarah Johnson</p>
+            <p className="text-sm text-gray-500 mt-1">{displayName}</p>
           </div>
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 flex items-center justify-center">
             <UserIcon className="w-6 h-6 text-white" />

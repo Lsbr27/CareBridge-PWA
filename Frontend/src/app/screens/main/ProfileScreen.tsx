@@ -16,6 +16,8 @@ import {
   ChevronRight
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
+import { useAuth } from "../../providers/AuthProvider";
+import { useMemo, useState } from "react";
 
 const profileInfo = {
   name: "Sarah Johnson",
@@ -40,6 +42,42 @@ const settingsOptions = [
 ];
 
 export function ProfileScreen() {
+  const { profile, user, signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const profileName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    profileInfo.name;
+  const profileEmail = user?.email || profileInfo.email;
+  const memberId = user?.id.slice(0, 8).toUpperCase() || profileInfo.memberId;
+  const dateOfBirth = profile?.date_of_birth
+    ? new Date(`${profile.date_of_birth}T00:00:00`).toLocaleDateString()
+    : profileInfo.dob;
+  const healthTags = useMemo(() => {
+    const tags = [];
+
+    if (profile?.gender) {
+      tags.push(profile.gender);
+    }
+
+    if (profile?.diagnosis) {
+      tags.push(profile.diagnosis);
+    }
+
+    return tags.slice(0, 2);
+  }, [profile?.diagnosis, profile?.gender]);
+
+  async function handleSignOut() {
+    try {
+      setIsSigningOut(true);
+      await signOut();
+    } catch (error) {
+      console.error("Sign out failed", error);
+      window.alert("We couldn't sign you out. Please try again.");
+      setIsSigningOut(false);
+    }
+  }
+
   return (
     <div className="p-6 pt-8">
       {/* Header */}
@@ -65,15 +103,20 @@ export function ProfileScreen() {
               <User className="w-10 h-10 text-white" />
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-light text-gray-800">{profileInfo.name}</h2>
-              <p className="text-sm text-gray-500">ID: {profileInfo.memberId}</p>
+              <h2 className="text-xl font-light text-gray-800">{profileName}</h2>
+              <p className="text-sm text-gray-500">ID: {memberId}</p>
               <div className="flex gap-2 mt-2">
-                <span className="text-xs bg-purple-200/60 text-purple-700 px-2 py-1 rounded-full">
-                  42 years
-                </span>
-                <span className="text-xs bg-pink-200/60 text-pink-700 px-2 py-1 rounded-full">
-                  Premium
-                </span>
+                {healthTags.length > 0 ? (
+                  healthTags.map((tag) => (
+                    <span key={tag} className="text-xs bg-purple-200/60 text-purple-700 px-2 py-1 rounded-full">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs bg-pink-200/60 text-pink-700 px-2 py-1 rounded-full">
+                    CareMosaic member
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -98,7 +141,7 @@ export function ProfileScreen() {
             </div>
             <div className="flex-1">
               <p className="text-xs text-gray-500">Email</p>
-              <p className="text-sm text-gray-800">{profileInfo.email}</p>
+              <p className="text-sm text-gray-800">{profileEmail}</p>
             </div>
           </div>
           <div className="h-px bg-gray-200/50"></div>
@@ -118,7 +161,7 @@ export function ProfileScreen() {
             </div>
             <div className="flex-1">
               <p className="text-xs text-gray-500">Date of Birth</p>
-              <p className="text-sm text-gray-800">{profileInfo.dob}</p>
+              <p className="text-sm text-gray-800">{dateOfBirth}</p>
             </div>
           </div>
           <div className="h-px bg-gray-200/50"></div>
@@ -198,9 +241,13 @@ export function ProfileScreen() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
       >
-        <button className="w-full py-4 rounded-[20px] bg-white/50 backdrop-blur-sm border border-white/60 text-red-600 font-medium flex items-center justify-center gap-2 hover:bg-white/70 transition-all">
+        <button
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="w-full py-4 rounded-[20px] bg-white/50 backdrop-blur-sm border border-white/60 text-red-600 font-medium flex items-center justify-center gap-2 hover:bg-white/70 transition-all disabled:opacity-70"
+        >
           <LogOut className="w-5 h-5" />
-          Sign Out
+          {isSigningOut ? "Signing out..." : "Sign Out"}
         </button>
       </motion.div>
     </div>

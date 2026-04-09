@@ -1,12 +1,31 @@
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Chrome, LoaderCircle } from "lucide-react";
+import { useSearchParams } from "react-router";
+import { useState } from "react";
+import { useAuth } from "../../providers/AuthProvider";
 
 export function OnboardingCTA() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { signInWithGoogle } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleGoogleSignIn() {
+    try {
+      setIsSubmitting(true);
+      await signInWithGoogle(next);
+    } catch (error) {
+      console.error("Google sign-in failed", error);
+      setIsSubmitting(false);
+      window.alert("We couldn't start Google sign-in. Please check your Supabase Google provider settings.");
+    }
+  }
+
+  const next = searchParams.get("next");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#C9C4BC] via-[#D4CFC7] to-[#DED9D1] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-[425px] h-screen flex flex-col justify-between py-16">
         {/* Logo with sparkle */}
         <motion.div
@@ -39,8 +58,13 @@ export function OnboardingCTA() {
             Ready to build<br />your health story?
           </h2>
           <p className="text-gray-500 leading-relaxed mb-4">
-            Transform scattered health information into clear insights that help you and your doctor make better decisions.
+            Sign in with Google to save your profile, medications, daily logs, and appointments in your own private CareMosaic space.
           </p>
+          {next ? (
+            <p className="text-xs uppercase tracking-[0.3em] text-purple-500">
+              We&apos;ll take you back to your app after login
+            </p>
+          ) : null}
         </motion.div>
 
         {/* CTA and skip */}
@@ -51,16 +75,22 @@ export function OnboardingCTA() {
           className="space-y-4 pb-8"
         >
           <button
-            onClick={() => navigate("/app")}
-            className="w-full py-4 rounded-[20px] bg-gradient-to-r from-purple-400 to-pink-400 text-white font-medium shadow-xl shadow-purple-300/40 hover:shadow-2xl hover:shadow-purple-300/50 transition-all duration-300"
+            onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
+            className="w-full py-4 px-5 rounded-[20px] bg-gradient-to-r from-purple-400 to-pink-400 text-white font-medium shadow-xl shadow-purple-300/40 hover:shadow-2xl hover:shadow-purple-300/50 transition-all duration-300 disabled:opacity-80 disabled:cursor-wait flex items-center justify-center gap-3"
           >
-            Start Building Your Health Story
+            {isSubmitting ? (
+              <LoaderCircle className="w-5 h-5 animate-spin" />
+            ) : (
+              <Chrome className="w-5 h-5" />
+            )}
+            Continue with Google
           </button>
           <button
-            onClick={() => navigate("/app")}
+            onClick={() => navigate("/")}
             className="w-full py-4 text-gray-500 hover:text-gray-700 transition-colors"
           >
-            I'll do this later
+            Back to onboarding
           </button>
         </motion.div>
 
