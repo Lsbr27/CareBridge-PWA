@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { Check } from "lucide-react";
 
@@ -118,7 +120,7 @@ const puzzlePieces: PuzzlePiece[] = [
 ];
 
 export function OnboardingPuzzlePremium() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [animationStage, setAnimationStage] = useState<"initial" | "connecting" | "completed">("initial");
 
   useEffect(() => {
@@ -343,7 +345,7 @@ export function OnboardingPuzzlePremium() {
               className="pb-16"
             >
               <button
-                onClick={() => navigate("/app")}
+                onClick={() => router.push("/app")}
                 className="w-full py-5 rounded-full text-white text-lg font-medium relative overflow-hidden group"
                 style={{
                   background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",

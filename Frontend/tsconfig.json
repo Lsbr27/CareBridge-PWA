@@ -24,14 +24,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": [
-    "node_modules",
-    "src/main.tsx",
-    "src/app/App.tsx",
-    "src/app/routes.tsx",
-    "src/app/screens/onboarding/OnboardingPuzzle.tsx",
-    "src/app/screens/onboarding/OnboardingPuzzleInteractive.tsx",
-    "src/app/screens/onboarding/OnboardingPuzzlePremium.tsx",
-    "src/app/screens/onboarding/OnboardingPuzzleSwipe.tsx"
-  ]
+  "exclude": ["node_modules"]
 }

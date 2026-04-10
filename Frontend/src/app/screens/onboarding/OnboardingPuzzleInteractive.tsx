@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "motion/react";
 import { Check, ChevronUp } from "lucide-react";
 
@@ -63,7 +65,7 @@ const puzzlePieces: PuzzlePiece[] = [
 ];
 
 export function OnboardingPuzzleInteractive() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [isCompleted, setIsCompleted] = useState(false);
   const [hasStartedSwipe, setHasStartedSwipe] = useState(false);
   const swipeProgress = useMotionValue(0);
@@ -290,7 +292,7 @@ export function OnboardingPuzzleInteractive() {
               className="pb-16"
             >
               <button
-                onClick={() => navigate("/app")}
+                onClick={() => router.push("/app")}
                 className="w-full py-5 rounded-full text-white text-lg font-medium relative overflow-hidden group"
                 style={{
                   background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
