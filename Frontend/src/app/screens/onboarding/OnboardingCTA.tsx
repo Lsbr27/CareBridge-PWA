@@ -1,13 +1,14 @@
-import { useNavigate } from "react-router";
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { Sparkles, Chrome, LoaderCircle } from "lucide-react";
-import { useSearchParams } from "react-router";
 import { useState } from "react";
 import { useAuth } from "../../providers/AuthProvider";
 
 export function OnboardingCTA() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { signInWithGoogle } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -87,7 +88,7 @@ export function OnboardingCTA() {
             Continue with Google
           </button>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => router.push("/")}
             className="w-full py-4 text-gray-500 hover:text-gray-700 transition-colors"
           >
             Back to onboarding

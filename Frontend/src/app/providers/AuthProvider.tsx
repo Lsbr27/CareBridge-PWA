@@ -1,3 +1,5 @@
+"use client";
+
 import {
   createContext,
   useContext,
@@ -7,7 +9,7 @@ import {
   type PropsWithChildren,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 type Profile = {
   id: string;
@@ -61,30 +63,44 @@ export function AuthProvider({ children }: PropsWithChildren) {
     mountedRef.current = true;
 
     async function initializeAuth() {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
 
-      if (!mountedRef.current) {
-        return;
-      }
-
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-
-      if (currentSession?.user) {
-        try {
-          const nextProfile = await loadProfile(currentSession.user.id);
-          if (mountedRef.current) {
-            setProfile(nextProfile);
-          }
-        } catch (error) {
-          console.error("Error loading profile", error);
+        if (!mountedRef.current) {
+          return;
         }
-      }
 
-      if (mountedRef.current) {
-        setLoading(false);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
+          try {
+            const nextProfile = await loadProfile(currentSession.user.id);
+            if (mountedRef.current) {
+              setProfile(nextProfile);
+            }
+          } catch (error) {
+            console.error("Error loading profile", error);
+            if (mountedRef.current) {
+              setProfile(null);
+            }
+          }
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error("Error initializing auth", error);
+        if (mountedRef.current) {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
     }
 

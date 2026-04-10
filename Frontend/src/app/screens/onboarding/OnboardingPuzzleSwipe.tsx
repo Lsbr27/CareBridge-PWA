@@ -150,7 +150,7 @@ export function OnboardingPuzzleSwipe() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-between p-6 overflow-hidden select-none">
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-between p-6 overflow-hidden select-none">
       <div className="w-full max-w-[425px] min-h-screen flex flex-col">
         {/* Logo */}
         <motion.div

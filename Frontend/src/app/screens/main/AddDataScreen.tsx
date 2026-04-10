@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Search, Activity, Clock, Heart, Pill, Plus, Check } from "lucide-react";

@@ -1,4 +1,7 @@
-import { Outlet, useNavigate, useLocation } from "react-router";
+"use client";
+
+import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Home, Pill, TrendingUp, User } from "lucide-react";
 
 const navItems = [
@@ -8,16 +11,16 @@ const navItems = [
   { path: "/app/profile", icon: User, label: "Profile" },
 ];
 
-export function MainLayout() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isSetupRoute = location.pathname === "/app/profile/setup";
+export function MainLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isSetupRoute = pathname === "/app/profile/setup";
 
   const isActive = (path: string) => {
     if (path === "/app") {
-      return location.pathname === "/app";
+      return pathname === "/app";
     }
-    return location.pathname.startsWith(path);
+    return pathname.startsWith(path);
   };
 
   return (
@@ -25,7 +28,7 @@ export function MainLayout() {
       <div className="w-full max-w-[425px] min-h-screen flex flex-col relative">
         {/* Main content */}
         <div className={`flex-1 overflow-y-auto ${isSetupRoute ? "pb-6" : "pb-24"}`}>
-          <Outlet />
+          {children}
         </div>
 
         {/* Bottom navigation */}
@@ -38,7 +41,7 @@ export function MainLayout() {
                 return (
                   <button
                     key={item.path}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => router.push(item.path)}
                     className={`flex flex-col items-center gap-1 rounded-[16px] px-5 py-3 transition-all duration-300 ${
                       active
                         ? "bg-gradient-to-br from-purple-400/20 to-pink-400/20 text-purple-700"

@@ -97,7 +97,7 @@ export function OnboardingPuzzleInteractive() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-between p-6 overflow-hidden">
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-between p-6 overflow-hidden">
       <div className="w-full max-w-[425px] min-h-screen flex flex-col">
         {/* Logo */}
         <motion.div

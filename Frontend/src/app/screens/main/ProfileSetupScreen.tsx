@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useRouter } from "next/navigation";
 import { CalendarDays, FileHeart, LoaderCircle, Sparkles, UserRound } from "lucide-react";
 import { motion } from "motion/react";
 import { GlassCard } from "../../components/GlassCard";
@@ -25,7 +27,7 @@ const genderOptions = [
 
 export function ProfileSetupScreen() {
   const { profile, user, updateProfile } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [fullName, setFullName] = useState(
     profile?.full_name || user?.user_metadata?.full_name || "",
   );
@@ -45,7 +47,7 @@ export function ProfileSetupScreen() {
         gender,
         diagnosis,
       });
-      navigate("/app", { replace: true });
+      router.replace("/app");
     } catch (error) {
       console.error("Profile update failed", error);
       window.alert("We couldn't save your profile yet. Please try again.");

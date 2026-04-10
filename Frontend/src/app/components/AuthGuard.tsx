@@ -1,10 +1,25 @@
-import { Navigate, Outlet, useLocation } from "react-router";
+"use client";
+
+import { useEffect } from "react";
+import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 
-export function AuthGuard() {
+export function AuthGuard({ children }: { children: ReactNode }) {
   const { loading, user } = useAuth();
-  const location = useLocation();
+  const pathname = usePathname();
+  const router = useRouter();
+  const shouldRedirect = !loading && !user;
+
+  useEffect(() => {
+    if (!shouldRedirect) {
+      return;
+    }
+
+    const next = encodeURIComponent(pathname);
+    router.replace(`/auth?next=${next}`);
+  }, [pathname, router, shouldRedirect]);
 
   if (loading) {
     return (
@@ -17,16 +32,33 @@ export function AuthGuard() {
     );
   }
 
-  if (!user) {
-    const next = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/auth?next=${next}`} replace />;
+  if (shouldRedirect) {
+    return null;
   }
 
-  return <Outlet />;
+  return <>{children}</>;
 }
 
-export function PublicOnlyRoute() {
+export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const { loading, user } = useAuth();
+  const router = useRouter();
+  const shouldRedirect = !loading && !!user;
+
+  useEffect(() => {
+    if (!shouldRedirect) {
+      return;
+    }
+
+    const nextPath = window.sessionStorage.getItem("auth_next_path");
+
+    if (nextPath) {
+      window.sessionStorage.removeItem("auth_next_path");
+      router.replace(nextPath);
+      return;
+    }
+
+    router.replace("/app");
+  }, [router, shouldRedirect]);
 
   if (loading) {
     return (
@@ -39,16 +71,9 @@ export function PublicOnlyRoute() {
     );
   }
 
-  if (user) {
-    const nextPath = window.sessionStorage.getItem("auth_next_path");
-
-    if (nextPath) {
-      window.sessionStorage.removeItem("auth_next_path");
-      return <Navigate to={nextPath} replace />;
-    }
-
-    return <Navigate to="/app" replace />;
+  if (shouldRedirect) {
+    return null;
   }
 
-  return <Outlet />;
+  return <>{children}</>;
 }

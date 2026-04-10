@@ -1,4 +1,8 @@
-import { Navigate, Outlet, useLocation } from "react-router";
+"use client";
+
+import { useEffect } from "react";
+import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 
@@ -10,10 +14,25 @@ function isProfileComplete(profile: {
   return Boolean(profile?.full_name && profile.date_of_birth && profile.gender);
 }
 
-export function ProfileCompletionGuard() {
+export function ProfileCompletionGuard({ children }: { children: ReactNode }) {
   const { loading, profile } = useAuth();
-  const location = useLocation();
-  const isSetupRoute = location.pathname === "/app/profile/setup";
+  const pathname = usePathname();
+  const router = useRouter();
+  const isSetupRoute = pathname === "/app/profile/setup";
+  const profileComplete = isProfileComplete(profile);
+  const shouldGoToSetup = !loading && !profileComplete && !isSetupRoute;
+  const shouldGoHome = !loading && profileComplete && isSetupRoute;
+
+  useEffect(() => {
+    if (shouldGoToSetup) {
+      router.replace("/app/profile/setup");
+      return;
+    }
+
+    if (shouldGoHome) {
+      router.replace("/app");
+    }
+  }, [router, shouldGoHome, shouldGoToSetup]);
 
   if (loading) {
     return (
@@ -26,15 +45,9 @@ export function ProfileCompletionGuard() {
     );
   }
 
-  const profileComplete = isProfileComplete(profile);
-
-  if (!profileComplete && !isSetupRoute) {
-    return <Navigate to="/app/profile/setup" replace />;
+  if (shouldGoToSetup || shouldGoHome) {
+    return null;
   }
 
-  if (profileComplete && isSetupRoute) {
-    return <Navigate to="/app" replace />;
-  }
-
-  return <Outlet />;
+  return <>{children}</>;
 }
