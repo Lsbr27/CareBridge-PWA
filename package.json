@@ -1,0 +1,12 @@
+{
+  "name": "carebridge-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix Frontend run dev --",
+    "build": "npm --prefix Frontend run build --",
+    "lint": "npm --prefix Frontend run lint --",
+    "start": "npm --prefix Frontend run start --",
+    "typecheck": "npm --prefix Frontend run typecheck --",
+    "install:frontend": "npm --prefix Frontend install"
+  }
+}

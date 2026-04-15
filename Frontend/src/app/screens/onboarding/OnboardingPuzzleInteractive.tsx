@@ -2,7 +2,14 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "motion/react";
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+  type MotionValue,
+  type PanInfo,
+} from "motion/react";
 import { Check, ChevronUp } from "lucide-react";
 
 interface PuzzlePiece {
@@ -15,6 +22,55 @@ interface PuzzlePiece {
   finalX: number;
   finalY: number;
   finalRotate: number;
+}
+
+function AnimatedPuzzlePiece({
+  piece,
+  index,
+  isCompleted,
+  swipeProgress,
+}: {
+  piece: PuzzlePiece;
+  index: number;
+  isCompleted: boolean;
+  swipeProgress: MotionValue<number>;
+}) {
+  const xPos = useTransform(swipeProgress, [0, 1], [piece.initialX, piece.finalX]);
+  const yPos = useTransform(swipeProgress, [0, 1], [piece.initialY, piece.finalY]);
+  const rotation = useTransform(swipeProgress, [0, 1], [piece.initialRotate, piece.finalRotate]);
+
+  return (
+    <motion.div
+      key={piece.id}
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={{
+        opacity: 1,
+        scale: isCompleted ? 1 : [0.7, 1],
+      }}
+      transition={{
+        opacity: { duration: 0.6, delay: index * 0.1 },
+        scale: {
+          duration: isCompleted ? 0.5 : 0.6,
+          delay: index * 0.1,
+          type: isCompleted ? "spring" : "tween",
+          bounce: 0.4,
+        },
+      }}
+      style={{
+        x: xPos,
+        y: yPos,
+        rotate: rotation,
+      }}
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    >
+      <Puzzle3DPiece
+        id={piece.id}
+        color={piece.color}
+        colorDark={piece.colorDark}
+        isCompleted={isCompleted}
+      />
+    </motion.div>
+  );
 }
 
 const puzzlePieces: PuzzlePiece[] = [
@@ -170,56 +226,15 @@ export function OnboardingPuzzleInteractive() {
               </AnimatePresence>
 
               {/* Puzzle Pieces */}
-              {puzzlePieces.map((piece, index) => {
-                const xPos = useTransform(
-                  swipeProgress,
-                  [0, 1],
-                  [piece.initialX, piece.finalX]
-                );
-                const yPos = useTransform(
-                  swipeProgress,
-                  [0, 1],
-                  [piece.initialY, piece.finalY]
-                );
-                const rotation = useTransform(
-                  swipeProgress,
-                  [0, 1],
-                  [piece.initialRotate, piece.finalRotate]
-                );
-
-                return (
-                  <motion.div
-                    key={piece.id}
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ 
-                      opacity: 1, 
-                      scale: isCompleted ? 1 : [0.7, 1],
-                    }}
-                    transition={{
-                      opacity: { duration: 0.6, delay: index * 0.1 },
-                      scale: { 
-                        duration: isCompleted ? 0.5 : 0.6, 
-                        delay: index * 0.1,
-                        type: isCompleted ? "spring" : "tween",
-                        bounce: 0.4,
-                      },
-                    }}
-                    style={{
-                      x: xPos,
-                      y: yPos,
-                      rotate: rotation,
-                    }}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                  >
-                    <Puzzle3DPiece
-                      id={piece.id}
-                      color={piece.color}
-                      colorDark={piece.colorDark}
-                      isCompleted={isCompleted}
-                    />
-                  </motion.div>
-                );
-              })}
+              {puzzlePieces.map((piece, index) => (
+                <AnimatedPuzzlePiece
+                  key={piece.id}
+                  piece={piece}
+                  index={index}
+                  isCompleted={isCompleted}
+                  swipeProgress={swipeProgress}
+                />
+              ))}
 
               {/* Center checkmark badge - appears when completed */}
               <AnimatePresence>
