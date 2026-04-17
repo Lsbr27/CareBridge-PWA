@@ -431,6 +431,7 @@ export function InsightsScreen() {
       .then(({ data }) => setHealthProfile((data as HealthProfile) ?? null));
   }, [profile?.id]);
 
+  const isLoading = healthProfile === undefined;
   const hasHealthProfile = healthProfile !== null && healthProfile !== undefined;
 
   const activeInsights = hasHealthProfile
@@ -452,6 +453,23 @@ export function InsightsScreen() {
   const { score, trend } = hasHealthProfile
     ? deriveScore(healthProfile!)
     : { score: FALLBACK_SCORE, trend: FALLBACK_SCORE_TREND };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 pt-8 space-y-4">
+        <div className="h-8 w-48 bg-gray-200/70 rounded-full animate-pulse" />
+        <div className="h-4 w-64 bg-gray-200/70 rounded-full animate-pulse" />
+        <div className="h-32 w-full bg-gray-200/70 rounded-2xl animate-pulse mt-6" />
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-gray-200/70 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-28 w-full bg-gray-200/70 rounded-2xl animate-pulse" />
+        <div className="h-28 w-full bg-gray-200/70 rounded-2xl animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 pt-8">
