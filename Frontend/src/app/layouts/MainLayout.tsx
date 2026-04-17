@@ -2,11 +2,12 @@
 
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Pill, TrendingUp, User } from "lucide-react";
+import { Home, Pill, TrendingUp, User, CalendarDays } from "lucide-react";
 
 const navItems = [
   { path: "/app", icon: Home, label: "Home" },
   { path: "/app/medications", icon: Pill, label: "Meds" },
+  { path: "/app/appointments", icon: CalendarDays, label: "Citas" },
   { path: "/app/insights", icon: TrendingUp, label: "Insights" },
   { path: "/app/profile", icon: User, label: "Profile" },
 ];
