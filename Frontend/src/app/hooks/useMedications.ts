@@ -144,7 +144,7 @@ export function useMedications(): UseMedicationsReturn {
       throw new Error("No authenticated user found.");
     }
 
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
 
     if (input.name !== undefined) payload.name = input.name;
     if (input.dosage !== undefined) payload.dosage = input.dosage?.trim() || null;
