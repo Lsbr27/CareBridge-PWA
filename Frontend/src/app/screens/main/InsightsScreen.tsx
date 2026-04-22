@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
+import { CareGuideCard } from "../../components/brand/CareGuideCard";
 import { useAuth } from "../../providers/AuthProvider";
 import { supabase } from "../../../../lib/supabase";
 
@@ -60,24 +61,24 @@ const FALLBACK_SCORE_TREND = "↑ 3 pts";
 
 const FALLBACK_INSIGHTS: InsightItem[] = [
   {
-    title: "Attention Needed",
-    description: "Your symptoms may be related to high blood pressure. Consider scheduling a checkup.",
+    title: "Atención necesaria",
+    description: "Tus síntomas pueden estar relacionados con presión arterial alta. Considera agendar una revisión.",
     icon: AlertCircle,
     color: "from-red-50/80 to-orange-50/80",
     iconColor: "text-red-500",
     priority: "high",
   },
   {
-    title: "Sleep Quality",
-    description: "Irregular sleep patterns may contribute to headaches and dizziness. Aim for 7-8 hours.",
+    title: "Calidad del sueño",
+    description: "Los patrones de sueño irregular pueden contribuir a dolores de cabeza y mareos. Apunta a 7-8 horas.",
     icon: Moon,
     color: "from-indigo-50/80 to-purple-50/80",
     iconColor: "text-indigo-500",
     priority: "medium",
   },
   {
-    title: "Great Progress",
-    description: "Your daily exercise routine supports cardiovascular health. Keep it up!",
+    title: "Buen progreso",
+    description: "Tu rutina diaria de ejercicio apoya la salud cardiovascular. ¡Sigue así!",
     icon: CheckCircle,
     color: "from-green-50/80 to-emerald-50/80",
     iconColor: "text-green-500",
@@ -86,17 +87,17 @@ const FALLBACK_INSIGHTS: InsightItem[] = [
 ];
 
 const FALLBACK_METRICS: MetricItem[] = [
-  { label: "Blood Pressure", value: "High", status: "alert", icon: Heart, trend: "+5%" },
-  { label: "Activity Level", value: "Active", status: "good", icon: Activity, trend: "+12%" },
-  { label: "Sleep Quality", value: "Poor", status: "alert", icon: Moon, trend: "-8%" },
-  { label: "Hydration", value: "Good", status: "good", icon: Droplet, trend: "+3%" },
+  { label: "Presión arterial", value: "Alta", status: "alert", icon: Heart, trend: "+5%" },
+  { label: "Actividad", value: "Activa", status: "good", icon: Activity, trend: "+12%" },
+  { label: "Sueño", value: "Deficiente", status: "alert", icon: Moon, trend: "-8%" },
+  { label: "Hidratación", value: "Bien", status: "good", icon: Droplet, trend: "+3%" },
 ];
 
 const FALLBACK_CONNECTIONS: ConnectionItem[] = [
   {
-    title: "Connected Pattern Detected",
-    items: ["Headaches", "High BP", "Poor Sleep"],
-    insight: "These symptoms often occur together and may indicate stress-related hypertension",
+    title: "Patrón detectado",
+    items: ["Dolores de cabeza", "Presión alta", "Sueño deficiente"],
+    insight: "Estos síntomas suelen aparecer juntos y pueden indicar hipertensión relacionada con el estrés.",
   },
 ];
 
@@ -479,8 +480,22 @@ export function InsightsScreen() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h1 className="text-2xl font-light text-gray-800 mb-2">Health Insights</h1>
-        <p className="text-sm text-gray-500">AI-powered analysis of your health data</p>
+        <h1 className="text-2xl font-semibold text-[#3b1060] mb-2">Insights de salud</h1>
+        <p className="text-sm text-gray-500">Tu resumen de bienestar personalizado</p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.06 }}
+        className="mb-6"
+      >
+        <CareGuideCard
+          title="Tu bienestar en contexto"
+          message="Analizo tus hábitos de sueño, actividad y estado de ánimo para darte una imagen clara de cómo estás."
+          tone="insights"
+          mood="happy"
+        />
       </motion.div>
 
       {/* Incomplete health profile banner */}
@@ -524,7 +539,7 @@ export function InsightsScreen() {
       >
         <GlassCard className="bg-gradient-to-br from-purple-100/60 to-pink-100/60">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-medium text-gray-800">Overall Health Score</h3>
+            <h3 className="text-base font-semibold text-[#3b1060]">Puntuación de salud</h3>
             <TrendingUp className="w-5 h-5 text-purple-600" />
           </div>
           <div className="flex items-end gap-2 mb-3">
@@ -548,7 +563,7 @@ export function InsightsScreen() {
         transition={{ delay: 0.2 }}
         className="mb-6"
       >
-        <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">Key Metrics</h3>
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Métricas clave</h3>
         <div className="grid grid-cols-2 gap-3">
           {activeMetrics.map((metric, index) => {
             const Icon = metric.icon;
@@ -593,9 +608,9 @@ export function InsightsScreen() {
         transition={{ delay: 0.5 }}
         className="mb-6"
       >
-        <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider flex items-center gap-2">
           <Brain className="w-4 h-4" />
-          Connected Patterns
+          Patrones conectados
         </h3>
         {activeConnections.map((connection, index) => (
           <GlassCard key={index} className="bg-gradient-to-br from-amber-50/70 to-yellow-50/70">
@@ -619,7 +634,7 @@ export function InsightsScreen() {
         transition={{ delay: 0.6 }}
         className="mb-6"
       >
-        <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">AI Insights</h3>
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Tus insights</h3>
         <div className="space-y-3">
           {activeInsights.map((insight, index) => {
             const Icon = insight.icon;
@@ -641,7 +656,7 @@ export function InsightsScreen() {
                           <h4 className="text-sm font-medium text-gray-800">{insight.title}</h4>
                           {insight.priority === "high" && (
                             <span className="text-xs bg-red-200/60 text-red-700 px-2 py-0.5 rounded-full">
-                              High
+                              Urgente
                             </span>
                           )}
                         </div>
@@ -662,8 +677,8 @@ export function InsightsScreen() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1 }}
       >
-        <button className="w-full py-4 rounded-[20px] bg-gradient-to-r from-purple-400 to-pink-400 text-white font-medium shadow-lg shadow-purple-300/30 hover:shadow-xl hover:shadow-purple-300/40 transition-all duration-300">
-          Schedule Doctor Consultation
+        <button className="w-full py-4 rounded-[20px] bg-[#6b21d6] text-white font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:shadow-purple-900/35 transition-all duration-300">
+          Agendar consulta médica
         </button>
       </motion.div>
     </div>

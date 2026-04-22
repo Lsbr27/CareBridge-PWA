@@ -8,9 +8,10 @@ import {
   Circle,
   Pill,
   Stethoscope,
-  User as UserIcon,
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
+import { CareGuideCard } from "../../components/brand/CareGuideCard";
+import { GhostMascot } from "../../components/brand/GhostMascot";
 import { useAuth } from "../../providers/AuthProvider";
 import { supabase } from "../../../../lib/supabase";
 
@@ -43,12 +44,13 @@ export function HomeScreen() {
     user?.user_metadata?.full_name ||
     user?.email?.split("@")[0] ||
     "there";
+  const profileId = profile?.id;
 
   const [nextAppt, setNextAppt] = useState<Appointment | null | undefined>(undefined);
   const [medCounts, setMedCounts] = useState<MedCounts | undefined>(undefined);
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!profileId) return;
 
     async function load() {
       const now = new Date().toISOString();
@@ -57,7 +59,7 @@ export function HomeScreen() {
         supabase
           .from("appointments")
           .select("id, title, appointment_at, provider_name")
-          .eq("profile_id", profile!.id)
+          .eq("profile_id", profileId)
           .eq("status", "scheduled")
           .gt("appointment_at", now)
           .order("appointment_at", { ascending: true })
@@ -67,7 +69,7 @@ export function HomeScreen() {
         supabase
           .from("medications")
           .select("status")
-          .eq("profile_id", profile!.id),
+          .eq("profile_id", profileId),
       ]);
 
       setNextAppt(apptRes.data ?? null);
@@ -85,7 +87,7 @@ export function HomeScreen() {
     }
 
     load();
-  }, [profile?.id]);
+  }, [profileId]);
 
   const apptFormatted = nextAppt ? formatDateTimeES(nextAppt.appointment_at) : null;
   const medsLoading = medCounts === undefined;
@@ -101,24 +103,35 @@ export function HomeScreen() {
       >
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-2xl font-light text-gray-800">Hola, {displayName}</h1>
+            <h1 className="text-2xl font-semibold text-[#3b1060]">Hola, {displayName}</h1>
             {profile?.diagnosis ? (
               <p className="text-sm text-purple-600 mt-1 font-medium">{profile.diagnosis}</p>
             ) : (
               <p className="text-sm text-gray-500 mt-1">Bienvenida a tu resumen de salud</p>
             )}
           </div>
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 flex items-center justify-center">
-            <UserIcon className="w-6 h-6 text-white" />
-          </div>
+          <GhostMascot size="xs" mood="happy" />
         </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="mb-6"
+      >
+        <CareGuideCard
+          title="Tu salud toma forma"
+          message="Reviso contigo medicamentos, citas y registros para que llegues con más claridad a tu próxima consulta."
+          mood="happy"
+        />
       </motion.div>
 
       {/* Medications summary */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.16 }}
         className="mb-6"
       >
         <GlassCard className="bg-gradient-to-br from-purple-100/60 to-pink-100/60">
@@ -165,10 +178,10 @@ export function HomeScreen() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.24 }}
           className="mb-6"
         >
-          <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">Tu diagnóstico</h3>
+          <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Tu diagnóstico</h3>
           <GlassCard>
             <div className="bg-gradient-to-br from-purple-100/70 to-pink-100/70 rounded-[16px] p-4">
               <div className="flex items-center gap-3 mb-2">
@@ -187,9 +200,9 @@ export function HomeScreen() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.32 }}
       >
-        <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">Próxima cita</h3>
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Próxima cita</h3>
 
         {apptLoading ? (
           <div className="h-24 animate-pulse rounded-[20px] bg-white/40" />
