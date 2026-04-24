@@ -20,6 +20,8 @@ import {
 import { GlassCard } from "../../components/GlassCard";
 import { useAuth } from "../../providers/AuthProvider";
 import { useMemo, useState } from "react";
+import { supabase } from "../../../../lib/supabase";
+import { useRouter } from "next/navigation";
 
 const profileInfo = {
   name: "Sarah Johnson",
@@ -44,14 +46,18 @@ const settingsOptions = [
 ];
 
 export function ProfileScreen() {
-  const { profile, user, signOut } = useAuth();
+  const { profile, user, signOut, updateProfile } = useAuth();
+  const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const profileName =
     profile?.full_name ||
     user?.user_metadata?.full_name ||
     profileInfo.name;
   const profileEmail = user?.email || profileInfo.email;
   const memberId = user?.id.slice(0, 8).toUpperCase() || profileInfo.memberId;
+  const location = profile?.location || profileInfo.location;
   const dateOfBirth = profile?.date_of_birth
     ? new Date(`${profile.date_of_birth}T00:00:00`).toLocaleDateString()
     : profileInfo.dob;
@@ -77,6 +83,68 @@ export function ProfileScreen() {
       console.error("Sign out failed", error);
       window.alert("We couldn't sign you out. Please try again.");
       setIsSigningOut(false);
+    }
+  }
+
+  function handleEditProfile() {
+    router.push("/app/profile/setup");
+  }
+
+  async function handleChangeEmail() {
+    const nextEmail = window.prompt("Enter your new email", profileEmail);
+
+    if (nextEmail === null) {
+      return;
+    }
+
+    const trimmedEmail = nextEmail.trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(trimmedEmail)) {
+      window.alert("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      setIsUpdatingEmail(true);
+      const { error } = await supabase.auth.updateUser({ email: trimmedEmail });
+
+      if (error) {
+        throw error;
+      }
+
+      window.alert("Email update requested. Please check your inbox to confirm the change.");
+    } catch (error) {
+      console.error("Email update failed", error);
+      window.alert("We couldn't update your email. Please try again.");
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  }
+
+  async function handleChangeLocation() {
+    const nextLocation = window.prompt("Enter your location", location);
+
+    if (nextLocation === null) {
+      return;
+    }
+
+    const trimmedLocation = nextLocation.trim();
+
+    if (!trimmedLocation) {
+      window.alert("Location cannot be empty.");
+      return;
+    }
+
+    try {
+      setIsUpdatingLocation(true);
+      await updateProfile({ location: trimmedLocation });
+      window.alert("Location updated.");
+    } catch (error) {
+      console.error("Location update failed", error);
+      window.alert("We couldn't update your location. Please try again.");
+    } finally {
+      setIsUpdatingLocation(false);
     }
   }
 
@@ -122,7 +190,10 @@ export function ProfileScreen() {
               </div>
             </div>
           </div>
-          <button className="w-full py-2 rounded-[16px] bg-white/50 text-gray-700 text-sm hover:bg-white/70 transition-colors">
+          <button
+            onClick={handleEditProfile}
+            className="w-full py-2 rounded-[16px] bg-white/50 text-gray-700 text-sm hover:bg-white/70 transition-colors"
+          >
             Edit Profile
           </button>
         </GlassCard>
@@ -145,6 +216,13 @@ export function ProfileScreen() {
               <p className="text-xs text-gray-500">Email</p>
               <p className="text-sm text-gray-800">{profileEmail}</p>
             </div>
+            <button
+              onClick={handleChangeEmail}
+              disabled={isUpdatingEmail}
+              className="rounded-lg bg-white/60 px-3 py-1.5 text-xs text-blue-700 hover:bg-white/80 transition-colors disabled:opacity-70"
+            >
+              {isUpdatingEmail ? "Saving..." : "Change"}
+            </button>
           </div>
           <div className="h-px bg-gray-200/50"></div>
           <div className="flex items-center gap-3">
@@ -173,8 +251,15 @@ export function ProfileScreen() {
             </div>
             <div className="flex-1">
               <p className="text-xs text-gray-500">Location</p>
-              <p className="text-sm text-gray-800">{profileInfo.location}</p>
+              <p className="text-sm text-gray-800">{location}</p>
             </div>
+            <button
+              onClick={handleChangeLocation}
+              disabled={isUpdatingLocation}
+              className="rounded-lg bg-white/60 px-3 py-1.5 text-xs text-orange-700 hover:bg-white/80 transition-colors disabled:opacity-70"
+            >
+              {isUpdatingLocation ? "Saving..." : "Change"}
+            </button>
           </div>
         </GlassCard>
       </motion.div>
