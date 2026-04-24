@@ -87,7 +87,7 @@ export function ProfileScreen() {
   }
 
   function handleEditProfile() {
-    router.push("/app/profile/setup");
+    router.push("/app/profile/setup?mode=edit");
   }
 
   async function handleChangeEmail() {

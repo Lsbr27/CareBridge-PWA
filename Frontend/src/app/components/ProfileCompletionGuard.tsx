@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { useAuth } from "../providers/AuthProvider";
 
@@ -17,11 +17,13 @@ function isProfileComplete(profile: {
 export function ProfileCompletionGuard({ children }: { children: ReactNode }) {
   const { loading, profile } = useAuth();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const isSetupRoute = pathname === "/app/profile/setup";
+  const isEditMode = searchParams.get("mode") === "edit";
   const profileComplete = isProfileComplete(profile);
   const shouldGoToSetup = !loading && !profileComplete && !isSetupRoute;
-  const shouldGoHome = !loading && profileComplete && isSetupRoute;
+  const shouldGoHome = !loading && profileComplete && isSetupRoute && !isEditMode;
 
   useEffect(() => {
     if (shouldGoToSetup) {
