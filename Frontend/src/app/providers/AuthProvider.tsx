@@ -40,18 +40,49 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function isMissingLocationColumnError(error: unknown) {
+  const message =
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+      ? error.message.toLowerCase()
+      : "";
+
+  return message.includes("location") && (message.includes("column") || message.includes("schema"));
+}
+
 async function loadProfile(userId: string) {
-  const { data, error } = await supabase
+  const withLocation = await supabase
     .from("profiles")
     .select("id, full_name, date_of_birth, gender, diagnosis, location")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) {
-    throw error;
+  if (!withLocation.error) {
+    return withLocation.data;
   }
 
-  return data;
+  if (!isMissingLocationColumnError(withLocation.error)) {
+    throw withLocation.error;
+  }
+
+  const withoutLocation = await supabase
+    .from("profiles")
+    .select("id, full_name, date_of_birth, gender, diagnosis")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (withoutLocation.error) {
+    throw withoutLocation.error;
+  }
+
+  return withoutLocation.data
+    ? {
+        ...withoutLocation.data,
+        location: null,
+      }
+    : null;
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -201,7 +232,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       payload.location = input.location?.trim() ? input.location.trim() : null;
     }
 
-    const { error } = await supabase.from("profiles").upsert(payload);
+    let { error } = await supabase.from("profiles").upsert(payload);
+
+    if (error && "location" in payload && isMissingLocationColumnError(error)) {
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.location;
+      const fallbackResult = await supabase.from("profiles").upsert(fallbackPayload);
+      error = fallbackResult.error;
+    }
 
     if (error) {
       throw error;
