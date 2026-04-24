@@ -18,13 +18,54 @@ function formatSlotDate(dateStr: string) {
   return `${WEEKDAY[dt.getDay()]} ${d} ${MONTH[m - 1]}`;
 }
 
+function toLocalIsoDate(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function groupSlotsByDate(slots: TimeSlot[]) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const map = new Map<string, string[]>();
   for (const s of slots) {
+    const slotDate = new Date(`${s.date}T00:00:00`);
+    if (slotDate <= today) continue;
+
     if (!map.has(s.date)) map.set(s.date, []);
     map.get(s.date)!.push(s.time);
   }
-  return map;
+
+  if (map.size > 0 || slots.length === 0) {
+    return map;
+  }
+
+  // If static mock dates are stale, rebuild them from tomorrow onward.
+  const templateByDate = new Map<string, string[]>();
+  for (const s of slots) {
+    if (!templateByDate.has(s.date)) templateByDate.set(s.date, []);
+    templateByDate.get(s.date)!.push(s.time);
+  }
+
+  const orderedTemplateDates = Array.from(templateByDate.keys()).sort();
+  const fallback = new Map<string, string[]>();
+
+  orderedTemplateDates.forEach((templateDate, index) => {
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + index + 1);
+    fallback.set(toLocalIsoDate(nextDate), templateByDate.get(templateDate) ?? []);
+  });
+
+  return fallback;
+}
+
+function hasSlots(slotGroups: Map<string, string[]>) {
+  for (const times of slotGroups.values()) {
+    if (times.length > 0) return true;
+  }
+  return false;
 }
 
 type BookingState = "idle" | "loading" | "success" | "error";
@@ -261,31 +302,35 @@ function BookingView({
           <Clock className="w-3.5 h-3.5" />
           Horarios disponibles
         </h4>
-        <div className="space-y-3">
-          {Array.from(slotGroups.entries()).map(([date, times]) => (
-            <div key={date}>
-              <p className="text-xs text-gray-500 mb-2 font-medium">{formatSlotDate(date)}</p>
-              <div className="flex flex-wrap gap-2">
-                {times.map((time) => {
-                  const isActive = pickedSlot?.date === date && pickedSlot?.time === time;
-                  return (
-                    <button
-                      key={time}
-                      onClick={() => onPickSlot({ date, time })}
-                      className={`text-xs px-3 py-1.5 rounded-xl border transition-all font-medium ${
-                        isActive
-                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-transparent shadow-md scale-105"
-                          : "bg-white/60 text-gray-700 border-gray-200 hover:border-purple-300"
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  );
-                })}
+        {hasSlots(slotGroups) ? (
+          <div className="space-y-3">
+            {Array.from(slotGroups.entries()).map(([date, times]) => (
+              <div key={date}>
+                <p className="text-xs text-gray-500 mb-2 font-medium">{formatSlotDate(date)}</p>
+                <div className="flex flex-wrap gap-2">
+                  {times.map((time) => {
+                    const isActive = pickedSlot?.date === date && pickedSlot?.time === time;
+                    return (
+                      <button
+                        key={time}
+                        onClick={() => onPickSlot({ date, time })}
+                        className={`text-xs px-3 py-1.5 rounded-xl border transition-all font-medium ${
+                          isActive
+                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-transparent shadow-md scale-105"
+                            : "bg-white/60 text-gray-700 border-gray-200 hover:border-purple-300"
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">No hay horarios disponibles para fechas futuras.</p>
+        )}
       </div>
 
       {/* Error */}
