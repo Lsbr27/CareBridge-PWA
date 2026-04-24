@@ -4,6 +4,18 @@ import { getSupabaseAdmin } from "../../../lib/supabase";
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function isMissingLocationColumnError(error: unknown) {
+  const message =
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+      ? error.message.toLowerCase()
+      : "";
+
+  return message.includes("location") && (message.includes("column") || message.includes("schema"));
+}
+
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
 
@@ -17,11 +29,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabaseAdmin = getSupabaseAdmin();
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("profiles")
       .select("id, full_name, date_of_birth, gender, diagnosis, location, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
+
+    if (error && isMissingLocationColumnError(error)) {
+      const fallback = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, date_of_birth, gender, diagnosis, created_at, updated_at")
+        .eq("id", id)
+        .maybeSingle();
+
+      error = fallback.error;
+      data = fallback.data ? { ...fallback.data, location: null } : null;
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
