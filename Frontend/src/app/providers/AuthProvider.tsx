@@ -17,13 +17,15 @@ type Profile = {
   date_of_birth: string | null;
   gender: string | null;
   diagnosis: string | null;
+  location: string | null;
 };
 
 type ProfileUpdateInput = {
-  full_name: string;
-  date_of_birth: string;
-  gender: string;
-  diagnosis: string | null;
+  full_name?: string;
+  date_of_birth?: string;
+  gender?: string;
+  diagnosis?: string | null;
+  location?: string | null;
 };
 
 type AuthContextValue = {
@@ -41,7 +43,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 async function loadProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, date_of_birth, gender, diagnosis")
+    .select("id, full_name, date_of_birth, gender, diagnosis, location")
     .eq("id", userId)
     .maybeSingle();
 
@@ -175,11 +177,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
       throw new Error("No authenticated user found.");
     }
 
-    const payload = {
+    const payload: Record<string, string | null> = {
       id: user.id,
-      ...input,
-      diagnosis: input.diagnosis?.trim() ? input.diagnosis.trim() : null,
     };
+
+    if (input.full_name !== undefined) {
+      payload.full_name = input.full_name.trim();
+    }
+
+    if (input.date_of_birth !== undefined) {
+      payload.date_of_birth = input.date_of_birth;
+    }
+
+    if (input.gender !== undefined) {
+      payload.gender = input.gender;
+    }
+
+    if (input.diagnosis !== undefined) {
+      payload.diagnosis = input.diagnosis?.trim() ? input.diagnosis.trim() : null;
+    }
+
+    if (input.location !== undefined) {
+      payload.location = input.location?.trim() ? input.location.trim() : null;
+    }
 
     const { error } = await supabase.from("profiles").upsert(payload);
 

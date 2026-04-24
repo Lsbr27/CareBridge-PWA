@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, date_of_birth, gender, diagnosis, created_at, updated_at")
+      .select("id, full_name, date_of_birth, gender, diagnosis, location, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
 
