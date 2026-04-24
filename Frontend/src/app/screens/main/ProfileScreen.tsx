@@ -50,12 +50,14 @@ export function ProfileScreen() {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const profileName =
     profile?.full_name ||
     user?.user_metadata?.full_name ||
     profileInfo.name;
   const profileEmail = user?.email || profileInfo.email;
+  const phone = profile?.phone || profileInfo.phone;
   const memberId = user?.id.slice(0, 8).toUpperCase() || profileInfo.memberId;
   const location = profile?.location || profileInfo.location;
   const dateOfBirth = profile?.date_of_birth
@@ -148,6 +150,32 @@ export function ProfileScreen() {
     }
   }
 
+  async function handleChangePhone() {
+    const nextPhone = window.prompt("Enter your phone number", phone);
+
+    if (nextPhone === null) {
+      return;
+    }
+
+    const trimmedPhone = nextPhone.trim();
+
+    if (!trimmedPhone) {
+      window.alert("Phone cannot be empty.");
+      return;
+    }
+
+    try {
+      setIsUpdatingPhone(true);
+      await updateProfile({ phone: trimmedPhone });
+      window.alert("Phone updated.");
+    } catch (error) {
+      console.error("Phone update failed", error);
+      window.alert("We couldn't update your phone. Please try again.");
+    } finally {
+      setIsUpdatingPhone(false);
+    }
+  }
+
   return (
     <div className="p-6 pt-8">
       {/* Header */}
@@ -231,8 +259,15 @@ export function ProfileScreen() {
             </div>
             <div className="flex-1">
               <p className="text-xs text-gray-500">Phone</p>
-              <p className="text-sm text-gray-800">{profileInfo.phone}</p>
+              <p className="text-sm text-gray-800">{phone}</p>
             </div>
+            <button
+              onClick={handleChangePhone}
+              disabled={isUpdatingPhone}
+              className="rounded-lg bg-white/60 px-3 py-1.5 text-xs text-green-700 hover:bg-white/80 transition-colors disabled:opacity-70"
+            >
+              {isUpdatingPhone ? "Saving..." : "Change"}
+            </button>
           </div>
           <div className="h-px bg-gray-200/50"></div>
           <div className="flex items-center gap-3">

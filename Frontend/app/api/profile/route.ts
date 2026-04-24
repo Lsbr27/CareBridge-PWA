@@ -13,7 +13,10 @@ function isMissingLocationColumnError(error: unknown) {
       ? error.message.toLowerCase()
       : "";
 
-  return message.includes("location") && (message.includes("column") || message.includes("schema"));
+  return (
+    (message.includes("location") || message.includes("phone")) &&
+    (message.includes("column") || message.includes("schema"))
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
     let { data, error } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, date_of_birth, gender, diagnosis, location, created_at, updated_at")
+      .select("id, full_name, date_of_birth, gender, diagnosis, location, phone, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
 
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle();
 
       error = fallback.error;
-      data = fallback.data ? { ...fallback.data, location: null } : null;
+      data = fallback.data ? { ...fallback.data, location: null, phone: null } : null;
     }
 
     if (error) {

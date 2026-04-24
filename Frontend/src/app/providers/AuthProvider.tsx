@@ -18,6 +18,7 @@ type Profile = {
   gender: string | null;
   diagnosis: string | null;
   location: string | null;
+  phone: string | null;
 };
 
 type ProfileUpdateInput = {
@@ -26,6 +27,7 @@ type ProfileUpdateInput = {
   gender?: string;
   diagnosis?: string | null;
   location?: string | null;
+  phone?: string | null;
 };
 
 type AuthContextValue = {
@@ -40,49 +42,79 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function isMissingLocationColumnError(error: unknown) {
-  const message =
+function getErrorMessage(error: unknown) {
+  if (
     typeof error === "object" &&
     error !== null &&
     "message" in error &&
     typeof error.message === "string"
-      ? error.message.toLowerCase()
-      : "";
+  ) {
+    return error.message.toLowerCase();
+  }
 
-  return message.includes("location") && (message.includes("column") || message.includes("schema"));
+  return "";
+}
+
+function isMissingColumnError(error: unknown, column: string) {
+  const message = getErrorMessage(error);
+  return message.includes(column) && (message.includes("column") || message.includes("schema"));
+}
+
+function hasMissingProfileColumns(error: unknown) {
+  return isMissingColumnError(error, "location") || isMissingColumnError(error, "phone");
+}
+
+function stripUnsupportedProfileFields(payload: Record<string, string | null>) {
+  const fallbackPayload = { ...payload };
+  delete fallbackPayload.location;
+  delete fallbackPayload.phone;
+  return fallbackPayload;
+}
+
+function normalizeLegacyProfileRow(
+  row: {
+    id: string;
+    full_name: string | null;
+    date_of_birth: string | null;
+    gender: string | null;
+    diagnosis: string | null;
+  } | null,
+) {
+  if (!row) return null;
+
+  return {
+    ...row,
+    location: null,
+    phone: null,
+  };
 }
 
 async function loadProfile(userId: string) {
-  const withLocation = await supabase
+  const withOptionalColumns = await supabase
     .from("profiles")
-    .select("id, full_name, date_of_birth, gender, diagnosis, location")
+    .select("id, full_name, date_of_birth, gender, diagnosis, location, phone")
     .eq("id", userId)
     .maybeSingle();
 
-  if (!withLocation.error) {
-    return withLocation.data;
+  if (!withOptionalColumns.error) {
+    return withOptionalColumns.data;
   }
 
-  if (!isMissingLocationColumnError(withLocation.error)) {
-    throw withLocation.error;
+  if (!hasMissingProfileColumns(withOptionalColumns.error)) {
+    throw withOptionalColumns.error;
   }
 
-  const withoutLocation = await supabase
+  const withoutOptionalColumns = await supabase
     .from("profiles")
     .select("id, full_name, date_of_birth, gender, diagnosis")
     .eq("id", userId)
     .maybeSingle();
 
-  if (withoutLocation.error) {
-    throw withoutLocation.error;
+  if (withoutOptionalColumns.error) {
+    throw withoutOptionalColumns.error;
   }
 
-  return withoutLocation.data
-    ? {
-        ...withoutLocation.data,
-        location: null,
-      }
-    : null;
+  return normalizeLegacyProfileRow(withoutOptionalColumns.data);
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -232,11 +264,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       payload.location = input.location?.trim() ? input.location.trim() : null;
     }
 
+    if (input.phone !== undefined) {
+      payload.phone = input.phone?.trim() ? input.phone.trim() : null;
+    }
+
     let { error } = await supabase.from("profiles").upsert(payload);
 
-    if (error && "location" in payload && isMissingLocationColumnError(error)) {
-      const fallbackPayload = { ...payload };
-      delete fallbackPayload.location;
+    if (error && hasMissingProfileColumns(error)) {
+      const fallbackPayload = stripUnsupportedProfileFields(payload);
       const fallbackResult = await supabase.from("profiles").upsert(fallbackPayload);
       error = fallbackResult.error;
     }
