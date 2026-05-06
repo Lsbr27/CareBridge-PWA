@@ -1,0 +1,146 @@
+{
+  "top_20_variables": [
+    {
+      "rank": 1,
+      "variable": "ejercicio_ultimo_mes_enc",
+      "nombre_legible": "Ejercicio en el último mes",
+      "importancia": 0.17072,
+      "predice": [
+        "cardiovascular_risk",
+        "diabetes",
+        "mental_health"
+      ]
+    },
+    {
+      "rank": 2,
+      "variable": "tiene_diabetes_enc",
+      "nombre_legible": "Diagnóstico de diabetes",
+      "importancia": 0.13298,
+      "predice": [
+        "cardiovascular_risk",
+        "kidney_disease"
+      ]
+    },
+    {
+      "rank": 3,
+      "variable": "peso_kg",
+      "nombre_legible": "Peso (kg)",
+      "importancia": 0.13164,
+      "predice": [
+        "diabetes",
+        "cardiovascular_risk",
+        "arthritis"
+      ]
+    },
+    {
+      "rank": 4,
+      "variable": "tiene_artritis_enc",
+      "nombre_legible": "Diagnóstico de artritis",
+      "importancia": 0.10048,
+      "predice": [
+        "arthritis",
+        "cardiovascular_risk"
+      ]
+    },
+    {
+      "rank": 5,
+      "variable": "altura_cm",
+      "nombre_legible": "Altura (cm)",
+      "importancia": 0.08677,
+      "predice": [
+        "cardiovascular_risk",
+        "diabetes"
+      ]
+    },
+    {
+      "rank": 6,
+      "variable": "tiene_depresion_enc",
+      "nombre_legible": "Diagnóstico de depresión",
+      "importancia": 0.07598,
+      "predice": [
+        "mental_health",
+        "cardiovascular_risk"
+      ]
+    },
+    {
+      "rank": 7,
+      "variable": "categoria_imc_enc",
+      "nombre_legible": "Categoría de IMC",
+      "importancia": 0.05419,
+      "predice": [
+        "diabetes",
+        "cardiovascular_risk",
+        "arthritis"
+      ]
+    },
+    {
+      "rank": 8,
+      "variable": "grupo_edad_enc",
+      "nombre_legible": "Grupo de edad",
+      "importancia": 0.05395,
+      "predice": [
+        "all_conditions"
+      ]
+    },
+    {
+      "rank": 9,
+      "variable": "consumo_alcohol_enc",
+      "nombre_legible": "Consumo de alcohol",
+      "importancia": 0.0539,
+      "predice": [
+        "cardiovascular_risk",
+        "mental_health",
+        "cancer"
+      ]
+    },
+    {
+      "rank": 10,
+      "variable": "tiene_cardiopatia_coronaria_enc",
+      "nombre_legible": "Diagnóstico de cardiopatía coronaria",
+      "importancia": 0.05266,
+      "predice": [
+        "cardiovascular_risk",
+        "stroke"
+      ]
+    },
+    {
+      "rank": 11,
+      "variable": "tiene_asma_enc",
+      "nombre_legible": "Diagnóstico de asma",
+      "importancia": 0.02767,
+      "predice": [
+        "asthma",
+        "respiratory"
+      ]
+    },
+    {
+      "rank": 12,
+      "variable": "tiene_otro_cancer_enc",
+      "nombre_legible": "Diagnóstico de otro cáncer",
+      "importancia": 0.02374,
+      "predice": [
+        "cancer"
+      ]
+    },
+    {
+      "rank": 13,
+      "variable": "sexo_enc",
+      "nombre_legible": "Sexo biológico",
+      "importancia": 0.01958,
+      "predice": [
+        "cardiovascular_risk",
+        "diabetes"
+      ]
+    },
+    {
+      "rank": 14,
+      "variable": "tiene_cancer_piel_enc",
+      "nombre_legible": "Diagnóstico de cáncer de piel",
+      "importancia": 0.01573,
+      "predice": [
+        "cancer",
+        "skin"
+      ]
+    }
+  ]
+}
