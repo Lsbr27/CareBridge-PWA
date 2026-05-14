@@ -1,0 +1,16 @@
+[
+  "altura_cm",
+  "peso_kg",
+  "sexo_enc",
+  "grupo_edad_enc",
+  "categoria_imc_enc",
+  "ejercicio_ultimo_mes_enc",
+  "consumo_alcohol_enc",
+  "tiene_diabetes_enc",
+  "tiene_cardiopatia_coronaria_enc",
+  "tiene_artritis_enc",
+  "tiene_asma_enc",
+  "tiene_depresion_enc",
+  "tiene_cancer_piel_enc",
+  "tiene_otro_cancer_enc"
+]
