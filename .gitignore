@@ -8,3 +8,8 @@ Frontend/dist/
 .env*.local
 .playwright-mcp/
 .next/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

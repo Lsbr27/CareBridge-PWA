@@ -23,7 +23,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="min-h-dvh flex items-center justify-center px-6">
         <div className="flex items-center gap-3 rounded-full bg-white/70 px-5 py-3 text-sm text-gray-700 shadow-lg backdrop-blur-xl">
           <LoaderCircle className="h-4 w-4 animate-spin" />
           Loading your CareMosaic space...
@@ -62,7 +62,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="min-h-dvh flex items-center justify-center px-6">
         <div className="flex items-center gap-3 rounded-full bg-white/70 px-5 py-3 text-sm text-gray-700 shadow-lg backdrop-blur-xl">
           <LoaderCircle className="h-4 w-4 animate-spin" />
           Checking your session...

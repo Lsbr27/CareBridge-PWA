@@ -129,7 +129,7 @@
     background:
       linear-gradient(180deg, #e8d5ff 0%, #f3e8ff 18%, #faf4ff 52%, #f7f0ff 100%);
     background-attachment: fixed;
-    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   /**

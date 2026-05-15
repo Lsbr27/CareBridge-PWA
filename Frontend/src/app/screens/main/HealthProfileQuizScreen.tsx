@@ -235,7 +235,7 @@ export function HealthProfileQuizScreen() {
 
   if (done) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-dvh flex flex-col items-center justify-center p-8 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -267,7 +267,7 @@ export function HealthProfileQuizScreen() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-6 pt-10">
+    <div className="min-h-dvh flex flex-col p-6 pt-10">
       {/* Progress bar */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">

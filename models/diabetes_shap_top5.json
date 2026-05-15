@@ -1,0 +1,46 @@
+{
+  "lab": [
+    {
+      "feature": "LBXGH",
+      "mean_shap": 1.521926
+    },
+    {
+      "feature": "LBDGLUSI",
+      "mean_shap": 0.553845
+    },
+    {
+      "feature": "age",
+      "mean_shap": 0.528843
+    },
+    {
+      "feature": "LBDLDL",
+      "mean_shap": 0.208104
+    },
+    {
+      "feature": "LBXTC",
+      "mean_shap": 0.133543
+    }
+  ],
+  "screening": [
+    {
+      "feature": "grupo_edad_enc",
+      "mean_shap": 0.671194
+    },
+    {
+      "feature": "categoria_imc_enc",
+      "mean_shap": 0.434745
+    },
+    {
+      "feature": "consumo_alcohol_enc",
+      "mean_shap": 0.291835
+    },
+    {
+      "feature": "ejercicio_ultimo_mes_enc",
+      "mean_shap": 0.165281
+    },
+    {
+      "feature": "sexo_enc",
+      "mean_shap": 0.151205
+    }
+  ]
+}

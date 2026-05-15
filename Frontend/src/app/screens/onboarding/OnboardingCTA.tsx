@@ -86,7 +86,7 @@ export function OnboardingCTA() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between bg-white px-6 py-12">
+    <div className="min-h-dvh flex flex-col items-center justify-between bg-white px-6 py-12">
       <div className="w-full max-w-[390px] flex flex-col items-center flex-1">
 
         {/* ── Illustration area ── */}
