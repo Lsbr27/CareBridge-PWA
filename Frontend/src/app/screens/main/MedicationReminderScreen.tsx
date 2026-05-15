@@ -176,21 +176,26 @@ export function MedicationReminderScreen() {
               </div>
 
               {/* Week strip */}
-              <div className="mb-6 grid grid-cols-7 gap-2">
+              <div className="mb-6 flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
                 {weekDays.map((item) => (
-                  <div key={`${item.label}-${item.day}`} className="text-center">
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                  <div
+                    key={`${item.label}-${item.day}`}
+                    className={`flex flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-3 transition-all shrink-0 flex-1 ${
+                      item.active
+                        ? "bg-[#6b21d6] shadow-[0_14px_26px_rgba(107,33,214,0.35)]"
+                        : "bg-white/70"
+                    }`}
+                  >
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider ${
+                      item.active ? "text-purple-200" : "text-slate-400"
+                    }`}>
                       {item.label}
                     </p>
-                    <div
-                      className={`mx-auto flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold ${
-                        item.active
-                          ? "bg-cyan-400 text-white shadow-[0_14px_26px_rgba(51,208,214,0.34)]"
-                          : "bg-white/90 text-slate-700"
-                      }`}
-                    >
+                    <p className={`text-lg font-bold leading-none ${
+                      item.active ? "text-white" : "text-slate-700"
+                    }`}>
                       {item.day}
-                    </div>
+                    </p>
                   </div>
                 ))}
               </div>

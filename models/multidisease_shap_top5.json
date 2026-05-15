@@ -1,0 +1,90 @@
+{
+  "diabetes": [
+    {
+      "feature": "grupo_edad_enc",
+      "mean_shap": 0.731105
+    },
+    {
+      "feature": "consumo_alcohol_enc",
+      "mean_shap": 0.291406
+    },
+    {
+      "feature": "peso_kg",
+      "mean_shap": 0.282412
+    },
+    {
+      "feature": "categoria_imc_enc",
+      "mean_shap": 0.206441
+    },
+    {
+      "feature": "ejercicio_ultimo_mes_enc",
+      "mean_shap": 0.160865
+    }
+  ],
+  "heart_disease": [
+    {
+      "feature": "grupo_edad_enc",
+      "mean_shap": 0.938502
+    },
+    {
+      "feature": "sexo_enc",
+      "mean_shap": 0.279876
+    },
+    {
+      "feature": "tiene_artritis_enc",
+      "mean_shap": 0.272049
+    },
+    {
+      "feature": "tiene_diabetes_enc",
+      "mean_shap": 0.229751
+    },
+    {
+      "feature": "tiene_depresion_enc",
+      "mean_shap": 0.11431
+    }
+  ],
+  "depression": [
+    {
+      "feature": "grupo_edad_enc",
+      "mean_shap": 0.343747
+    },
+    {
+      "feature": "sexo_enc",
+      "mean_shap": 0.314886
+    },
+    {
+      "feature": "tiene_artritis_enc",
+      "mean_shap": 0.292506
+    },
+    {
+      "feature": "tiene_asma_enc",
+      "mean_shap": 0.168043
+    },
+    {
+      "feature": "peso_kg",
+      "mean_shap": 0.110934
+    }
+  ],
+  "asthma": [
+    {
+      "feature": "tiene_depresion_enc",
+      "mean_shap": 0.230287
+    },
+    {
+      "feature": "tiene_artritis_enc",
+      "mean_shap": 0.185568
+    },
+    {
+      "feature": "grupo_edad_enc",
+      "mean_shap": 0.163848
+    },
+    {
+      "feature": "sexo_enc",
+      "mean_shap": 0.132092
+    },
+    {
+      "feature": "peso_kg",
+      "mean_shap": 0.102399
+    }
+  ]
+}

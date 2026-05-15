@@ -20,3 +20,8 @@ Frontend/tsconfig.tsbuildinfo
 
 # Claude Code
 .claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

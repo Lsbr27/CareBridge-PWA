@@ -54,6 +54,49 @@ type ConnectionItem = {
   insight: string;
 };
 
+// ── Diagnosis → symptoms mapping ───────────────────────────────────────────
+
+const DIAGNOSIS_PATTERNS: Record<string, { items: string[]; insight: string }> = {
+  hipotiroidismo: {
+    items: ["Fatiga", "Niebla mental", "Sensibilidad al frío"],
+    insight:
+      "Estos síntomas son frecuentes en hipotiroidismo no compensado. Mantener tu medicación y monitorear los niveles de TSH es clave.",
+  },
+  hipotiroidismo_autoinmune: {
+    items: ["Fatiga", "Niebla mental", "Sensibilidad al frío"],
+    insight:
+      "Estos síntomas son frecuentes en hipotiroidismo no compensado. Mantener tu medicación y monitorear los niveles de TSH es clave.",
+  },
+  endometriosis: {
+    items: ["Dolor pélvico", "Fatiga", "Hinchazón"],
+    insight:
+      "El dolor pélvico y la fatiga tienden a intensificarse en ciclos hormonales. Registrar tu ciclo junto a estos síntomas puede ayudar a tu médica.",
+  },
+  dermatitis: {
+    items: ["Irritación de piel", "Picazón", "Inflamación"],
+    insight:
+      "La dermatitis atópica tiene un componente inflamatorio sistémico. Registrar brotes junto con alimentación y estrés puede revelar patrones.",
+  },
+  dermatitis_atopica: {
+    items: ["Irritación de piel", "Picazón", "Inflamación"],
+    insight:
+      "La dermatitis atópica tiene un componente inflamatorio sistémico. Registrar brotes junto con alimentación y estrés puede revelar patrones.",
+  },
+};
+
+function getDiagnosisPattern(diagnosis: string | null) {
+  if (!diagnosis) return null;
+  const key = diagnosis.toLowerCase().replace(/\s+/g, "_");
+  if (DIAGNOSIS_PATTERNS[key]) return DIAGNOSIS_PATTERNS[key];
+  for (const [k, v] of Object.entries(DIAGNOSIS_PATTERNS)) {
+    if (key.includes(k) || k.includes(key)) return v;
+  }
+  return {
+    items: [diagnosis],
+    insight: `Llevar un registro diario de cómo te sientes con ${diagnosis} ayuda a tu médico a ajustar tu tratamiento.`,
+  };
+}
+
 // ─── static fallbacks (shown when no health_profile row exists) ───────────────
 
 const FALLBACK_SCORE = 72;
@@ -107,9 +150,7 @@ function deriveSleepInsight(hp: HealthProfile): InsightItem {
   const poorQuality = ["Me despierto varias veces", "Muy ligero"].includes(
     hp.sleep_quality ?? ""
   );
-  const poorWake = ["Cansada todavía", "Con ansiedad"].includes(
-    hp.wake_up_feeling ?? ""
-  );
+  const poorWake = ["Cansada todavía", "Con ansiedad"].includes(hp.wake_up_feeling ?? "");
   const h = hp.sleep_hours;
   const tooFew = h !== null && h < 6;
   const tooMany = h !== null && h > 9;
@@ -264,8 +305,7 @@ function deriveMetrics(hp: HealthProfile): MetricItem[] {
   const poorActivity =
     hp.physical_activity_frequency === "Casi nunca" ||
     hp.physical_activity_frequency === "1-2 veces";
-  const poorMood =
-    hp.mood_general === "Mal" || hp.mood_general === "Con altibajos";
+  const poorMood = hp.mood_general === "Mal" || hp.mood_general === "Con altibajos";
 
   const sleepValue = hp.sleep_hours
     ? `${hp.sleep_hours}h`
@@ -409,16 +449,21 @@ function deriveScore(hp: HealthProfile): { score: number; trend: string } {
       ? 5
       : 18;
 
-  const score = 10 + sleepPts + activityPts + moodPts;
-  return { score, trend: "" };
+  return { score: 10 + sleepPts + activityPts + moodPts, trend: "" };
 }
 
 export function InsightsScreen() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const router = useRouter();
-  const [healthProfile, setHealthProfile] = useState<HealthProfile | null | undefined>(
-    undefined // undefined = not yet fetched
-  );
+  const [healthProfile, setHealthProfile] = useState<HealthProfile | null | undefined>(undefined);
+  const [takenCount, setTakenCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const displayName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    null;
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -432,24 +477,57 @@ export function InsightsScreen() {
       .then(({ data }) => setHealthProfile((data as HealthProfile) ?? null));
   }, [profile?.id]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    supabase
+      .from("medications")
+      .select("status")
+      .eq("profile_id", profile.id)
+      .then(({ data }) => {
+        const rows = data ?? [];
+        setTakenCount(rows.filter((r) => r.status === "taken").length);
+        setTotalCount(rows.length);
+      });
+  }, [profile?.id]);
+
   const isLoading = healthProfile === undefined;
   const hasHealthProfile = healthProfile !== null && healthProfile !== undefined;
+
+  const medicationInsight: InsightItem = {
+    title: "Adherencia al tratamiento",
+    description:
+      totalCount === 0
+        ? "Agenda una consulta para que tu médico asigne tu plan de medicamentos."
+        : takenCount === totalCount
+        ? "¡Tomaste todos tus medicamentos hoy! Mantener la constancia es clave para tu recuperación."
+        : `Tomaste ${takenCount} de ${totalCount} medicamentos hoy. Recuerda completar tu plan para mejores resultados.`,
+    icon: CheckCircle,
+    color:
+      takenCount === totalCount
+        ? "from-green-50/80 to-emerald-50/80"
+        : "from-amber-50/80 to-yellow-50/80",
+    iconColor: takenCount === totalCount ? "text-green-500" : "text-amber-500",
+    priority: takenCount < totalCount && totalCount > 0 ? "high" : "low",
+  };
 
   const activeInsights = hasHealthProfile
     ? [
         deriveSleepInsight(healthProfile!),
         deriveActivityInsight(healthProfile!),
         deriveMoodInsight(healthProfile!),
+        medicationInsight,
       ]
-    : FALLBACK_INSIGHTS;
+    : [...FALLBACK_INSIGHTS, medicationInsight];
 
-  const activeMetrics = hasHealthProfile
-    ? deriveMetrics(healthProfile!)
-    : FALLBACK_METRICS;
+  const activeMetrics = hasHealthProfile ? deriveMetrics(healthProfile!) : FALLBACK_METRICS;
 
-  const activeConnections = hasHealthProfile
-    ? deriveConnections(healthProfile!)
-    : FALLBACK_CONNECTIONS;
+  const diagnosisPattern = getDiagnosisPattern(profile?.diagnosis ?? null);
+  const activeConnections: ConnectionItem[] = [
+    ...(hasHealthProfile ? deriveConnections(healthProfile!) : FALLBACK_CONNECTIONS),
+    ...(diagnosisPattern
+      ? [{ title: "Patrón detectado para tu diagnóstico", ...diagnosisPattern }]
+      : []),
+  ];
 
   const { score, trend } = hasHealthProfile
     ? deriveScore(healthProfile!)
@@ -473,7 +551,7 @@ export function InsightsScreen() {
   }
 
   return (
-    <div className="p-6 pt-8">
+    <div className="p-6 pt-8 pb-28">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -546,12 +624,17 @@ export function InsightsScreen() {
             <span className="text-5xl font-light text-gray-800">{score}</span>
             <span className="text-xl text-gray-500 mb-2">/100</span>
             {trend && <span className="text-sm text-purple-600 mb-2 ml-2">{trend}</span>}
+            {totalCount > 0 && (
+              <span className="text-sm text-purple-600 mb-2 ml-2">
+                {takenCount}/{totalCount} meds
+              </span>
+            )}
           </div>
           <div className="h-3 w-full bg-white/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"
               style={{ width: `${score}%` }}
-            ></div>
+            />
           </div>
         </GlassCard>
       </motion.div>
@@ -575,24 +658,26 @@ export function InsightsScreen() {
                 transition={{ delay: 0.3 + index * 0.05 }}
               >
                 <GlassCard className="relative overflow-hidden">
-                  <div className={`absolute top-2 right-2 ${
-                    metric.status === "alert" 
-                      ? "text-red-600" 
-                      : "text-green-600"
-                  }`}>
+                  <div
+                    className={`absolute top-2 right-2 ${
+                      metric.status === "alert" ? "text-red-600" : "text-green-600"
+                    }`}
+                  >
                     <ArrowUpRight className="w-4 h-4" />
                   </div>
-                  <Icon className={`w-5 h-5 mb-2 ${
-                    metric.status === "alert" 
-                      ? "text-red-600" 
-                      : "text-green-600"
-                  }`} />
+                  <Icon
+                    className={`w-5 h-5 mb-2 ${
+                      metric.status === "alert" ? "text-red-600" : "text-green-600"
+                    }`}
+                  />
                   <p className="text-xs text-gray-500 mb-1">{metric.label}</p>
-                  <p className={`text-lg font-medium ${
-                    metric.status === "alert" 
-                      ? "text-red-700" 
-                      : "text-green-700"
-                  }`}>{metric.value}</p>
+                  <p
+                    className={`text-lg font-medium ${
+                      metric.status === "alert" ? "text-red-700" : "text-green-700"
+                    }`}
+                  >
+                    {metric.value}
+                  </p>
                   <p className="text-xs text-gray-400 mt-1">{metric.trend}</p>
                 </GlassCard>
               </motion.div>
@@ -602,30 +687,32 @@ export function InsightsScreen() {
       </motion.div>
 
       {/* Connected Patterns */}
-      {activeConnections.length > 0 && <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mb-6"
-      >
-        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider flex items-center gap-2">
-          <Brain className="w-4 h-4" />
-          Patrones conectados
-        </h3>
-        {activeConnections.map((connection, index) => (
-          <GlassCard key={index} className="bg-gradient-to-br from-amber-50/70 to-yellow-50/70">
-            <h4 className="text-sm font-medium text-gray-800 mb-3">{connection.title}</h4>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {connection.items.map((item, i) => (
-                <div key={i} className="bg-white/60 px-3 py-1.5 rounded-full text-xs text-gray-700">
-                  {item}
-                </div>
-              ))}
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed">{connection.insight}</p>
-          </GlassCard>
-        ))}
-      </motion.div>}
+      {activeConnections.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-6"
+        >
+          <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            Patrones conectados
+          </h3>
+          {activeConnections.map((connection, index) => (
+            <GlassCard key={index} className="bg-gradient-to-br from-amber-50/70 to-yellow-50/70">
+              <h4 className="text-sm font-medium text-gray-800 mb-3">{connection.title}</h4>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {connection.items.map((item, i) => (
+                  <div key={i} className="bg-white/60 px-3 py-1.5 rounded-full text-xs text-gray-700">
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed">{connection.insight}</p>
+            </GlassCard>
+          ))}
+        </motion.div>
+      )}
 
       {/* AI Insights */}
       <motion.div
@@ -660,7 +747,9 @@ export function InsightsScreen() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 leading-relaxed">{insight.description}</p>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {insight.description}
+                        </p>
                       </div>
                     </div>
                   </div>

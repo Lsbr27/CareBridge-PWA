@@ -1,0 +1,24 @@
+{
+  "health_score": [
+    {
+      "feature": "ejercicio_ultimo_mes_enc",
+      "mean_shap": 0.269541
+    },
+    {
+      "feature": "tiene_artritis_enc",
+      "mean_shap": 0.20868
+    },
+    {
+      "feature": "tiene_depresion_enc",
+      "mean_shap": 0.17295
+    },
+    {
+      "feature": "tiene_diabetes_enc",
+      "mean_shap": 0.167608
+    },
+    {
+      "feature": "consumo_alcohol_enc",
+      "mean_shap": 0.117543
+    }
+  ]
+}
