@@ -70,6 +70,22 @@ type ConnectionItem = {
   insight: string;
 };
 
+type AppleHealthSample = {
+  metric: string;
+  value: number;
+  unit: string;
+  measured_at: string;
+};
+
+type AppleConnectionStatus = "not_connected" | "pending" | "connected";
+
+type AppleConnection = {
+  status: AppleConnectionStatus;
+  requestedAt: string | null;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+};
+
 // ── Diagnosis → symptoms mapping ───────────────────────────────────────────
 
 const DIAGNOSIS_PATTERNS: Record<string, { items: string[]; insight: string }> = {
@@ -539,6 +555,10 @@ export function InsightsScreen() {
   const [totalCount, setTotalCount] = useState(0);
   const [mlRisk, setMlRisk] = useState<RiskResult | null>(null);
   const [mlLoading, setMlLoading] = useState(false);
+  const [appleSamples, setAppleSamples] = useState<AppleHealthSample[]>([]);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [appleConnection, setAppleConnection] = useState<AppleConnection | null>(null);
+  const [appleActionLoading, setAppleActionLoading] = useState(false);
 
   const displayName =
     profile?.full_name ||
@@ -556,6 +576,19 @@ export function InsightsScreen() {
       .eq("profile_id", profile.id)
       .maybeSingle()
       .then(({ data }) => setHealthProfile((data as HealthProfile) ?? null));
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    setAppleLoading(true);
+    fetch(`/api/health-sync/apple?userId=${profile.id}&limit=300&days=30`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        setAppleSamples((data?.samples ?? []) as AppleHealthSample[]);
+        setAppleConnection((data?.connection ?? null) as AppleConnection | null);
+      })
+      .catch(() => setAppleSamples([]))
+      .finally(() => setAppleLoading(false));
   }, [profile?.id]);
 
   useEffect(() => {
@@ -615,6 +648,41 @@ export function InsightsScreen() {
     : [...FALLBACK_INSIGHTS, medicationInsight];
 
   const activeMetrics = hasHealthProfile ? deriveMetrics(healthProfile!) : FALLBACK_METRICS;
+
+  const latestByMetric = appleSamples.reduce<Record<string, AppleHealthSample>>((acc, sample) => {
+    if (!acc[sample.metric]) acc[sample.metric] = sample;
+    return acc;
+  }, {});
+  const latestAppleAt = appleConnection?.lastSyncAt ?? appleSamples[0]?.measured_at ?? null;
+  const appleStatus: AppleConnectionStatus = appleConnection?.status ?? "not_connected";
+  const appleConnected = appleStatus === "connected";
+
+  const appleSteps = latestByMetric.steps;
+  const appleSleep = latestByMetric.sleep_hours;
+  const appleRestingHr = latestByMetric.heart_rate_resting;
+
+  async function updateAppleConnectionStatus(nextStatus: AppleConnectionStatus) {
+    if (!profile?.id) return;
+    setAppleActionLoading(true);
+    try {
+      const r = await fetch("/api/health-sync/apple", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profile.id, status: nextStatus }),
+      });
+      const data = await r.json().catch(() => null);
+      if (r.ok && data?.connection) {
+        setAppleConnection({
+          status: data.connection.status,
+          requestedAt: data.connection.requested_at ?? null,
+          connectedAt: data.connection.connected_at ?? null,
+          lastSyncAt: data.connection.last_sync_at ?? latestAppleAt ?? null,
+        });
+      }
+    } finally {
+      setAppleActionLoading(false);
+    }
+  }
 
   const diagnosisPattern = getDiagnosisPattern(profile?.diagnosis ?? null);
   const activeConnections: ConnectionItem[] = [
@@ -740,6 +808,102 @@ export function InsightsScreen() {
       </motion.div>
 
       {/* Key Metrics */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.16 }}
+        className="mb-6"
+      >
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">
+          Apple Health
+        </h3>
+        <GlassCard
+          className={
+            appleConnected
+              ? "bg-gradient-to-br from-emerald-50/70 to-teal-50/70"
+              : "bg-gradient-to-br from-gray-50/80 to-slate-50/80"
+          }
+        >
+          {appleLoading ? (
+            <div className="h-16 bg-gray-200/70 rounded-xl animate-pulse" />
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-800">
+                  {appleStatus === "connected"
+                    ? "Conectado y sincronizando"
+                    : appleStatus === "pending"
+                    ? "Conexión solicitada"
+                    : "Sin conexión detectada"}
+                </p>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    appleStatus === "connected"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : appleStatus === "pending"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {appleStatus === "connected"
+                    ? "Activo"
+                    : appleStatus === "pending"
+                    ? "En proceso"
+                    : "Pendiente"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {latestAppleAt
+                  ? `Última sincronización: ${new Date(latestAppleAt).toLocaleString()}`
+                  : "Aún no recibimos datos de Apple Health para este perfil."}
+              </p>
+              {appleConnected && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/70 rounded-xl p-2">
+                    <p className="text-[11px] text-gray-500">Pasos</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {appleSteps ? Math.round(appleSteps.value).toLocaleString() : "—"}
+                    </p>
+                  </div>
+                  <div className="bg-white/70 rounded-xl p-2">
+                    <p className="text-[11px] text-gray-500">Sueño</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {appleSleep ? `${appleSleep.value} h` : "—"}
+                    </p>
+                  </div>
+                  <div className="bg-white/70 rounded-xl p-2">
+                    <p className="text-[11px] text-gray-500">FC reposo</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {appleRestingHr ? `${Math.round(appleRestingHr.value)} bpm` : "—"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="pt-1">
+                {appleStatus === "not_connected" && (
+                  <button
+                    disabled={appleActionLoading}
+                    onClick={() => updateAppleConnectionStatus("pending")}
+                    className="text-xs px-3 py-2 rounded-full bg-[#6b21d6] text-white font-medium disabled:opacity-60"
+                  >
+                    {appleActionLoading ? "Guardando..." : "Conectar Apple Health"}
+                  </button>
+                )}
+                {appleStatus === "pending" && (
+                  <button
+                    disabled={appleActionLoading}
+                    onClick={() => updateAppleConnectionStatus("not_connected")}
+                    className="text-xs px-3 py-2 rounded-full bg-gray-200 text-gray-700 font-medium disabled:opacity-60"
+                  >
+                    {appleActionLoading ? "Guardando..." : "Cancelar solicitud"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </GlassCard>
+      </motion.div>
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
