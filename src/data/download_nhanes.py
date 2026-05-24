@@ -30,7 +30,6 @@ import time
 from pathlib import Path
 
 import pandas as pd
-import pyreadstat
 import requests
 from tqdm import tqdm
 
