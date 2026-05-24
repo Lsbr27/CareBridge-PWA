@@ -2,89 +2,89 @@
   "diabetes": [
     {
       "feature": "grupo_edad_enc",
-      "mean_shap": 0.731105
+      "mean_shap": 0.735961
     },
     {
-      "feature": "consumo_alcohol_enc",
-      "mean_shap": 0.291406
+      "feature": "salud_general_enc",
+      "mean_shap": 0.514614
     },
     {
       "feature": "peso_kg",
-      "mean_shap": 0.282412
+      "mean_shap": 0.28634
+    },
+    {
+      "feature": "consumo_alcohol_enc",
+      "mean_shap": 0.235109
     },
     {
       "feature": "categoria_imc_enc",
-      "mean_shap": 0.206441
-    },
-    {
-      "feature": "ejercicio_ultimo_mes_enc",
-      "mean_shap": 0.160865
+      "mean_shap": 0.149478
     }
   ],
   "heart_disease": [
     {
       "feature": "grupo_edad_enc",
-      "mean_shap": 0.938502
+      "mean_shap": 0.933194
+    },
+    {
+      "feature": "salud_general_enc",
+      "mean_shap": 0.515001
     },
     {
       "feature": "sexo_enc",
-      "mean_shap": 0.279876
+      "mean_shap": 0.29282
     },
     {
       "feature": "tiene_artritis_enc",
-      "mean_shap": 0.272049
+      "mean_shap": 0.194145
     },
     {
       "feature": "tiene_diabetes_enc",
-      "mean_shap": 0.229751
-    },
-    {
-      "feature": "tiene_depresion_enc",
-      "mean_shap": 0.11431
+      "mean_shap": 0.14946
     }
   ],
   "depression": [
     {
-      "feature": "grupo_edad_enc",
-      "mean_shap": 0.343747
+      "feature": "sexo_enc",
+      "mean_shap": 0.337835
     },
     {
-      "feature": "sexo_enc",
-      "mean_shap": 0.314886
+      "feature": "grupo_edad_enc",
+      "mean_shap": 0.33413
+    },
+    {
+      "feature": "salud_general_enc",
+      "mean_shap": 0.300937
     },
     {
       "feature": "tiene_artritis_enc",
-      "mean_shap": 0.292506
+      "mean_shap": 0.23531
     },
     {
       "feature": "tiene_asma_enc",
-      "mean_shap": 0.168043
-    },
-    {
-      "feature": "peso_kg",
-      "mean_shap": 0.110934
+      "mean_shap": 0.139996
     }
   ],
   "asthma": [
     {
       "feature": "tiene_depresion_enc",
-      "mean_shap": 0.230287
-    },
-    {
-      "feature": "tiene_artritis_enc",
-      "mean_shap": 0.185568
+      "mean_shap": 0.214705
     },
     {
       "feature": "grupo_edad_enc",
-      "mean_shap": 0.163848
+      "mean_shap": 0.163499
+    },
+    {
+      "feature": "tiene_artritis_enc",
+      "mean_shap": 0.162726
     },
     {
       "feature": "sexo_enc",
-      "mean_shap": 0.132092
+      "mean_shap": 0.14538
     },
     {
-      "feature": "peso_kg",
-      "mean_shap": 0.102399
+      "feature": "salud_general_enc",
+      "mean_shap": 0.14517
     }
   ]
 }

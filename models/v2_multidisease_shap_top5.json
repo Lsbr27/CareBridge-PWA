@@ -1,0 +1,156 @@
+{
+  "diabetes": [
+    {
+      "feature": "age_group_enc",
+      "mean_shap": 0.580304
+    },
+    {
+      "feature": "has_high_bp_enc",
+      "mean_shap": 0.519255
+    },
+    {
+      "feature": "general_health_enc",
+      "mean_shap": 0.460576
+    },
+    {
+      "feature": "has_high_cholesterol_enc",
+      "mean_shap": 0.295547
+    },
+    {
+      "feature": "bmi_computed",
+      "mean_shap": 0.249968
+    }
+  ],
+  "high_bp": [
+    {
+      "feature": "age_group_enc",
+      "mean_shap": 0.67635
+    },
+    {
+      "feature": "has_high_cholesterol_enc",
+      "mean_shap": 0.338423
+    },
+    {
+      "feature": "general_health_enc",
+      "mean_shap": 0.243492
+    },
+    {
+      "feature": "has_diabetes_enc",
+      "mean_shap": 0.202207
+    },
+    {
+      "feature": "bmi_computed",
+      "mean_shap": 0.184778
+    }
+  ],
+  "heart_disease": [
+    {
+      "feature": "age_group_enc",
+      "mean_shap": 0.900436
+    },
+    {
+      "feature": "has_high_bp_enc",
+      "mean_shap": 0.428422
+    },
+    {
+      "feature": "general_health_enc",
+      "mean_shap": 0.412814
+    },
+    {
+      "feature": "has_high_cholesterol_enc",
+      "mean_shap": 0.329815
+    },
+    {
+      "feature": "height_cm",
+      "mean_shap": 0.172533
+    }
+  ],
+  "depression": [
+    {
+      "feature": "poor_mental_health_days",
+      "mean_shap": 0.895475
+    },
+    {
+      "feature": "ever_smoked_enc",
+      "mean_shap": 0.180807
+    },
+    {
+      "feature": "height_cm",
+      "mean_shap": 0.178745
+    },
+    {
+      "feature": "poor_physical_health_days",
+      "mean_shap": 0.173517
+    },
+    {
+      "feature": "has_asthma_enc",
+      "mean_shap": 0.14822
+    }
+  ],
+  "asthma": [
+    {
+      "feature": "has_depression_enc",
+      "mean_shap": 0.227269
+    },
+    {
+      "feature": "poor_physical_health_days",
+      "mean_shap": 0.205172
+    },
+    {
+      "feature": "age_group_enc",
+      "mean_shap": 0.149233
+    },
+    {
+      "feature": "height_cm",
+      "mean_shap": 0.121059
+    },
+    {
+      "feature": "general_health_enc",
+      "mean_shap": 0.116284
+    }
+  ],
+  "high_cholesterol": [
+    {
+      "feature": "age_group_enc",
+      "mean_shap": 0.605831
+    },
+    {
+      "feature": "has_high_bp_enc",
+      "mean_shap": 0.379779
+    },
+    {
+      "feature": "has_diabetes_enc",
+      "mean_shap": 0.13665
+    },
+    {
+      "feature": "bmi_computed",
+      "mean_shap": 0.117197
+    },
+    {
+      "feature": "general_health_enc",
+      "mean_shap": 0.091642
+    }
+  ],
+  "stroke": [
+    {
+      "feature": "age_group_enc",
+      "mean_shap": 0.644466
+    },
+    {
+      "feature": "has_high_bp_enc",
+      "mean_shap": 0.37338
+    },
+    {
+      "feature": "general_health_enc",
+      "mean_shap": 0.259984
+    },
+    {
+      "feature": "has_heart_disease_enc",
+      "mean_shap": 0.168582
+    },
+    {
+      "feature": "has_depression_enc",
+      "mean_shap": 0.114201
+    }
+  ]
+}

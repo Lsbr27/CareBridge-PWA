@@ -65,13 +65,14 @@ NULL_THRESHOLD   = 0.20
 # ── Target encoding ────────────────────────────────────────────────────────────
 
 HEALTH_MAP = {
-    "mala":      0,
-    "regular":   1,
-    "buena":     2,
-    "muy_buena": 3,
-    "excelente": 4,
+    "mala":      0,   # bajo
+    "regular":   0,   # bajo
+    "buena":     1,   # medio
+    "muy_buena": 2,   # alto
+    "excelente": 2,   # alto
 }
-NUM_CLASSES = len(HEALTH_MAP)  # 5
+NUM_CLASSES  = 3
+CLASS_LABELS = {0: "bajo", 1: "medio", 2: "alto"}
 
 # ── Columns always excluded from features ──────────────────────────────────────
 # Mirrors train_multidisease.py — raw text columns and composite leakage scores.
@@ -101,7 +102,7 @@ ALWAYS_EXCLUDE = {
 
 XGB_PARAMS = dict(
     objective="multi:softprob",
-    num_class=NUM_CLASSES,
+    num_class=NUM_CLASSES,  # 3 (bajo / medio / alto)
     n_estimators=300,
     max_depth=6,
     learning_rate=0.05,
@@ -231,19 +232,18 @@ def train(
     print(f"  F1 weighted: {f1_weighted:.4f}")
 
     # Confusion matrix
-    id_to_label = {v: k for k, v in HEALTH_MAP.items()}
-    labels      = sorted(HEALTH_MAP.values())
-    cm          = confusion_matrix(y_test, y_pred, labels=labels)
-    col_w       = 12
+    labels = sorted(CLASS_LABELS.keys())
+    cm     = confusion_matrix(y_test, y_pred, labels=labels)
+    col_w  = 12
 
     print(f"\n  Confusion matrix (rows=true, cols=predicted):")
     header = f"  {'True \\ Pred':<{col_w}}" + "".join(
-        f"{id_to_label[l]:>{col_w}}" for l in labels
+        f"{CLASS_LABELS[l]:>{col_w}}" for l in labels
     )
     print(header)
     print("  " + "─" * (col_w * (1 + len(labels))))
     for i, l in enumerate(labels):
-        row = f"  {id_to_label[l]:<{col_w}}" + "".join(
+        row = f"  {CLASS_LABELS[l]:<{col_w}}" + "".join(
             f"{cm[i, j]:>{col_w},}" for j in range(len(labels))
         )
         print(row)
@@ -257,7 +257,7 @@ def train(
     top5 = get_shap_top5(model, X_shap)
     print(f"\n  Top-5 SHAP: {[item['feature'] for item in top5]}")
 
-    out_path = MODELS_DIR / "health_score.joblib"
+    out_path = MODELS_DIR / "health_score_v2.joblib"
     joblib.dump(model, out_path)
     print(f"  Saved → {out_path.relative_to(ROOT)}")
 
@@ -277,12 +277,11 @@ def main() -> None:
 
     df, y = derive_target(df)
 
-    # Class distribution
-    id_to_label = {v: k for k, v in HEALTH_MAP.items()}
-    print("\n  Distribución de clases (salud_general):")
-    for cls_idx in sorted(HEALTH_MAP.values()):
+    # Class distribution (3 collapsed classes)
+    print("\n  Distribución de clases (salud_general → 3 clases):")
+    for cls_idx in sorted(CLASS_LABELS.keys()):
         n = int((y == cls_idx).sum())
-        print(f"    {cls_idx}  {id_to_label[cls_idx]:<10}  {n:>7,}  ({n / len(y):.1%})")
+        print(f"    {cls_idx}  {CLASS_LABELS[cls_idx]:<10}  {n:>7,}  ({n / len(y):.1%})")
 
     # High-null column exclusion
     null_pct       = df.isnull().mean()
@@ -306,11 +305,11 @@ def main() -> None:
         for item in result["shap_top5"]
     )
     clases_str = "  ".join(
-        f"{v}={k} ({int((y == v).sum() / len(y) * 100)}%)"
-        for k, v in HEALTH_MAP.items()
+        f"{i}={CLASS_LABELS[i]} ({int((y == i).sum() / len(y) * 100)}%)"
+        for i in sorted(CLASS_LABELS.keys())
     )
     print("\n")
-    print("=== MODELO SALUD PERCIBIDA ===")
+    print("=== MODELO SALUD PERCIBIDA v2 (3 clases) ===")
     print(f"  Clases: {clases_str}")
     print(f"  Accuracy:    {result['accuracy']:.3f}")
     print(f"  F1 macro:    {result['f1_macro']:.3f}")
