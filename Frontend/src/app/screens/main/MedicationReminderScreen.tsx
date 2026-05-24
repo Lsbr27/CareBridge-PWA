@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { BellRing, Check, ChevronRight, Clock3, Pill } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
+import { CareGuideCard } from "../../components/brand/CareGuideCard";
 import { useAuth } from "../../providers/AuthProvider";
 import { supabase } from "../../../../lib/supabase";
 
@@ -45,6 +46,7 @@ function FloatingPill({ className, gradient }: { className: string; gradient: st
 
 export function MedicationReminderScreen() {
   const { profile } = useAuth();
+  const profileId = profile?.id;
   const [medications, setMedications] = useState<Medication[]>([]);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState<Set<string>>(new Set());
@@ -73,16 +75,24 @@ export function MedicationReminderScreen() {
     });
   }
   const weekDays = buildWeekDays();
+  const pendingCount = medications.filter((med) => med.status !== "taken").length;
+  const guideMessage = loading
+    ? "Estoy preparando tu plan de hoy para que puedas revisarlo con calma."
+    : pendingCount === 0 && medications.length > 0
+      ? "Todo marcado por hoy. Ese orden pequeño también cuenta como cuidado."
+      : pendingCount > 0
+        ? `Te acompaño con ${pendingCount} ${pendingCount === 1 ? "toma pendiente" : "tomas pendientes"} de hoy. Vamos paso a paso.`
+        : "Cuando agregues tu tratamiento, te ayudaré a seguir horarios y dosis sin adivinar.";
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!profileId) return;
 
     async function fetchMedications() {
       setLoading(true);
       const { data } = await supabase
         .from("medications")
         .select("id, name, dosage, frequency, schedule_time, status")
-        .eq("profile_id", profile!.id)
+        .eq("profile_id", profileId)
         .order("schedule_time", { ascending: true });
 
       setMedications(data ?? []);
@@ -90,7 +100,7 @@ export function MedicationReminderScreen() {
     }
 
     fetchMedications();
-  }, [profile?.id]);
+  }, [profileId]);
 
   return (
     <div className="p-6 pt-8">
@@ -101,7 +111,7 @@ export function MedicationReminderScreen() {
       >
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-light text-gray-800">Medicamentos</h1>
+            <h1 className="text-2xl font-semibold text-[#3b1060]">Medicamentos</h1>
             <p className="mt-1 text-sm text-gray-500">
               Tus recordatorios y dosis del día
             </p>
@@ -117,10 +127,24 @@ export function MedicationReminderScreen() {
         </div>
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.06 }}
+        className="mb-6"
+      >
+        <CareGuideCard
+          title="Tratamiento sin ruido"
+          message={guideMessage}
+          tone="meds"
+          mood={pendingCount === 0 && medications.length > 0 ? "celebrate" : "calm"}
+        />
+      </motion.div>
+
       <motion.section
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08 }}
+        transition={{ delay: 0.14 }}
         className="mb-6"
       >
         <div className="relative overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(247,251,255,0.9)_54%,rgba(241,246,255,0.95))] p-4 shadow-[0_24px_70px_rgba(145,169,201,0.16)]">
@@ -152,21 +176,26 @@ export function MedicationReminderScreen() {
               </div>
 
               {/* Week strip */}
-              <div className="mb-6 grid grid-cols-7 gap-2">
+              <div className="mb-6 flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
                 {weekDays.map((item) => (
-                  <div key={`${item.label}-${item.day}`} className="text-center">
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                  <div
+                    key={`${item.label}-${item.day}`}
+                    className={`flex flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-3 transition-all shrink-0 flex-1 ${
+                      item.active
+                        ? "bg-[#6b21d6] shadow-[0_14px_26px_rgba(107,33,214,0.35)]"
+                        : "bg-white/70"
+                    }`}
+                  >
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider ${
+                      item.active ? "text-purple-200" : "text-slate-400"
+                    }`}>
                       {item.label}
                     </p>
-                    <div
-                      className={`mx-auto flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold ${
-                        item.active
-                          ? "bg-cyan-400 text-white shadow-[0_14px_26px_rgba(51,208,214,0.34)]"
-                          : "bg-white/90 text-slate-700"
-                      }`}
-                    >
+                    <p className={`text-lg font-bold leading-none ${
+                      item.active ? "text-white" : "text-slate-700"
+                    }`}>
                       {item.day}
-                    </div>
+                    </p>
                   </div>
                 ))}
               </div>

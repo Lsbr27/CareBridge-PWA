@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, FileHeart, LoaderCircle, Sparkles, UserRound } from "lucide-react";
 import { motion } from "motion/react";
 import { GlassCard } from "../../components/GlassCard";
@@ -28,6 +28,8 @@ const genderOptions = [
 export function ProfileSetupScreen() {
   const { profile, user, updateProfile } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isEditMode = searchParams.get("mode") === "edit";
   const [fullName, setFullName] = useState(
     profile?.full_name || user?.user_metadata?.full_name || "",
   );
@@ -47,7 +49,7 @@ export function ProfileSetupScreen() {
         gender,
         diagnosis,
       });
-      router.replace("/app");
+      router.replace(isEditMode ? "/app/profile" : "/app");
     } catch (error) {
       console.error("Profile update failed", error);
       window.alert("We couldn't save your profile yet. Please try again.");
@@ -64,9 +66,11 @@ export function ProfileSetupScreen() {
       >
         <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs uppercase tracking-[0.3em] text-purple-600 backdrop-blur-xl">
           <Sparkles className="h-3.5 w-3.5" />
-          First step
+          {isEditMode ? "Edit mode" : "First step"}
         </div>
-        <h1 className="mt-4 text-3xl font-light text-gray-800">Complete your patient profile</h1>
+        <h1 className="mt-4 text-3xl font-light text-gray-800">
+          {isEditMode ? "Edit your profile" : "Complete your patient profile"}
+        </h1>
         <p className="mt-3 text-sm leading-6 text-gray-500">
           We only need a few essentials to personalize your medications, daily logs, and appointments.
         </p>

@@ -25,15 +25,21 @@ export function MainLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-transparent flex items-center justify-center">
-      <div className="w-full max-w-[425px] min-h-screen flex flex-col relative">
+    <div className="min-h-dvh bg-transparent flex items-center justify-center">
+      <div className="w-full max-w-[425px] min-h-dvh flex flex-col relative">
         {/* Main content */}
-        <div className={`flex-1 overflow-y-auto ${isSetupRoute ? "pb-6" : "pb-24"}`}>
+        <div
+          className={`flex-1 overflow-y-auto ${isSetupRoute ? "pb-6" : ""}`}
+          style={!isSetupRoute ? { paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom))" } : undefined}
+        >
           {children}
         </div>
 
         {/* Bottom navigation */}
-        <div className={`${isSetupRoute ? "hidden" : "fixed"} bottom-0 left-1/2 w-full max-w-[425px] -translate-x-1/2 px-6 pb-6`}>
+        <div
+          className={`${isSetupRoute ? "hidden" : "fixed"} bottom-0 left-1/2 w-full max-w-[425px] -translate-x-1/2 px-6`}
+          style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+        >
           <div className="rounded-[24px] border border-white/60 bg-white/50 p-2 shadow-xl backdrop-blur-xl">
             <div className="flex items-center justify-around">
               {navItems.map((item) => {

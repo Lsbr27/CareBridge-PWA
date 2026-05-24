@@ -8,3 +8,20 @@ Frontend/dist/
 .env*.local
 .playwright-mcp/
 .next/
+
+# Datos pesados de ML — no versionar
+Data/raw/
+Data/processed/
+Data/models/
+Data/reports/
+Data/notebooks/figures/
+Data/scripts/feature_ranking.csv
+Frontend/tsconfig.tsbuildinfo
+
+# Claude Code
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

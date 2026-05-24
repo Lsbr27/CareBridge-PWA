@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "../src/styles/index.css";
 import { AuthProvider } from "../src/app/providers/AuthProvider";
@@ -6,6 +6,13 @@ import { AuthProvider } from "../src/app/providers/AuthProvider";
 export const metadata: Metadata = {
   title: "CareMosaic",
   description: "Patient data, medications, appointments, and health logs in one place.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

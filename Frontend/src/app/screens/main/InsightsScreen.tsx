@@ -14,13 +14,30 @@ import {
   Brain,
   ArrowUpRight,
   Sparkles,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
+import { CareGuideCard } from "../../components/brand/CareGuideCard";
 import { useAuth } from "../../providers/AuthProvider";
 import { supabase } from "../../../../lib/supabase";
 
 // ─── types ────────────────────────────────────────────────────────────────────
+
+type ConditionResult = {
+  probability: number;
+  flag: boolean;
+  threshold: number;
+};
+
+type RiskResult = {
+  conditions: Record<string, ConditionResult>;
+  health_score: {
+    label: "bajo" | "medio" | "alto";
+    class: number;
+    probabilities: Record<string, number>;
+  };
+};
 
 type HealthProfile = {
   sleep_hours: number | null;
@@ -53,6 +70,22 @@ type ConnectionItem = {
   insight: string;
 };
 
+type AppleHealthSample = {
+  metric: string;
+  value: number;
+  unit: string;
+  measured_at: string;
+};
+
+type AppleConnectionStatus = "not_connected" | "pending" | "connected";
+
+type AppleConnection = {
+  status: AppleConnectionStatus;
+  requestedAt: string | null;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+};
+
 // ── Diagnosis → symptoms mapping ───────────────────────────────────────────
 
 const DIAGNOSIS_PATTERNS: Record<string, { items: string[]; insight: string }> = {
@@ -83,6 +116,69 @@ const DIAGNOSIS_PATTERNS: Record<string, { items: string[]; insight: string }> =
   },
 };
 
+// ── ML condition metadata ──────────────────────────────────────────────────────
+
+const CONDITION_META: Record<
+  string,
+  { label: string; icon: LucideIcon; color: string; iconColor: string; advice: string }
+> = {
+  diabetes: {
+    label: "Riesgo de diabetes",
+    icon: Droplet,
+    color: "from-orange-50/80 to-amber-50/80",
+    iconColor: "text-orange-500",
+    advice: "Considera controlar tu glucosa en ayunas y reducir el consumo de azúcares.",
+  },
+  high_bp: {
+    label: "Riesgo de hipertensión",
+    icon: Heart,
+    color: "from-red-50/80 to-rose-50/80",
+    iconColor: "text-red-500",
+    advice: "Reducir el sodio, hacer ejercicio regular y monitorear tu presión puede marcar la diferencia.",
+  },
+  heart_disease: {
+    label: "Riesgo cardiovascular",
+    icon: Heart,
+    color: "from-red-50/80 to-pink-50/80",
+    iconColor: "text-rose-600",
+    advice: "Un chequeo cardiológico preventivo es recomendable, especialmente si tienes antecedentes familiares.",
+  },
+  depression: {
+    label: "Riesgo de depresión",
+    icon: Brain,
+    color: "from-indigo-50/80 to-purple-50/80",
+    iconColor: "text-indigo-500",
+    advice: "El bienestar mental merece atención. Hablar con un profesional puede ser un gran primer paso.",
+  },
+  asthma: {
+    label: "Riesgo de asma",
+    icon: Activity,
+    color: "from-blue-50/80 to-indigo-50/80",
+    iconColor: "text-blue-500",
+    advice: "Evitar irritantes del aire y consultar si tienes episodios de dificultad para respirar.",
+  },
+  high_cholesterol: {
+    label: "Colesterol potencialmente alto",
+    icon: TrendingUp,
+    color: "from-amber-50/80 to-yellow-50/80",
+    iconColor: "text-amber-500",
+    advice: "Una dieta baja en grasas saturadas y un análisis de sangre te darán una imagen clara.",
+  },
+  stroke: {
+    label: "Riesgo de ACV",
+    icon: AlertCircle,
+    color: "from-red-50/80 to-rose-50/80",
+    iconColor: "text-red-600",
+    advice: "Controlar la presión arterial y llevar un estilo de vida activo reduce significativamente el riesgo.",
+  },
+};
+
+const HEALTH_SCORE_LABEL: Record<string, { text: string; color: string }> = {
+  bajo:  { text: "Salud percibida baja",   color: "text-red-600" },
+  medio: { text: "Salud percibida media",  color: "text-amber-600" },
+  alto:  { text: "Salud percibida alta",   color: "text-green-600" },
+};
+
 function getDiagnosisPattern(diagnosis: string | null) {
   if (!diagnosis) return null;
   const key = diagnosis.toLowerCase().replace(/\s+/g, "_");
@@ -103,26 +199,24 @@ const FALLBACK_SCORE_TREND = "↑ 3 pts";
 
 const FALLBACK_INSIGHTS: InsightItem[] = [
   {
-    title: "Attention Needed",
-    description:
-      "Your symptoms may be related to high blood pressure. Consider scheduling a checkup.",
+    title: "Atención necesaria",
+    description: "Tus síntomas pueden estar relacionados con presión arterial alta. Considera agendar una revisión.",
     icon: AlertCircle,
     color: "from-red-50/80 to-orange-50/80",
     iconColor: "text-red-500",
     priority: "high",
   },
   {
-    title: "Sleep Quality",
-    description:
-      "Irregular sleep patterns may contribute to headaches and dizziness. Aim for 7-8 hours.",
+    title: "Calidad del sueño",
+    description: "Los patrones de sueño irregular pueden contribuir a dolores de cabeza y mareos. Apunta a 7-8 horas.",
     icon: Moon,
     color: "from-indigo-50/80 to-purple-50/80",
     iconColor: "text-indigo-500",
     priority: "medium",
   },
   {
-    title: "Great Progress",
-    description: "Your daily exercise routine supports cardiovascular health. Keep it up!",
+    title: "Buen progreso",
+    description: "Tu rutina diaria de ejercicio apoya la salud cardiovascular. ¡Sigue así!",
     icon: CheckCircle,
     color: "from-green-50/80 to-emerald-50/80",
     iconColor: "text-green-500",
@@ -131,18 +225,17 @@ const FALLBACK_INSIGHTS: InsightItem[] = [
 ];
 
 const FALLBACK_METRICS: MetricItem[] = [
-  { label: "Blood Pressure", value: "High", status: "alert", icon: Heart, trend: "+5%" },
-  { label: "Activity Level", value: "Active", status: "good", icon: Activity, trend: "+12%" },
-  { label: "Sleep Quality", value: "Poor", status: "alert", icon: Moon, trend: "-8%" },
-  { label: "Hydration", value: "Good", status: "good", icon: Droplet, trend: "+3%" },
+  { label: "Presión arterial", value: "Alta", status: "alert", icon: Heart, trend: "+5%" },
+  { label: "Actividad", value: "Activa", status: "good", icon: Activity, trend: "+12%" },
+  { label: "Sueño", value: "Deficiente", status: "alert", icon: Moon, trend: "-8%" },
+  { label: "Hidratación", value: "Bien", status: "good", icon: Droplet, trend: "+3%" },
 ];
 
 const FALLBACK_CONNECTIONS: ConnectionItem[] = [
   {
-    title: "Connected Pattern Detected",
-    items: ["Headaches", "High BP", "Poor Sleep"],
-    insight:
-      "These symptoms often occur together and may indicate stress-related hypertension",
+    title: "Patrón detectado",
+    items: ["Dolores de cabeza", "Presión alta", "Sueño deficiente"],
+    insight: "Estos síntomas suelen aparecer juntos y pueden indicar hipertensión relacionada con el estrés.",
   },
 ];
 
@@ -460,6 +553,12 @@ export function InsightsScreen() {
   const [healthProfile, setHealthProfile] = useState<HealthProfile | null | undefined>(undefined);
   const [takenCount, setTakenCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [mlRisk, setMlRisk] = useState<RiskResult | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [appleSamples, setAppleSamples] = useState<AppleHealthSample[]>([]);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [appleConnection, setAppleConnection] = useState<AppleConnection | null>(null);
+  const [appleActionLoading, setAppleActionLoading] = useState(false);
 
   const displayName =
     profile?.full_name ||
@@ -481,6 +580,19 @@ export function InsightsScreen() {
 
   useEffect(() => {
     if (!profile?.id) return;
+    setAppleLoading(true);
+    fetch(`/api/health-sync/apple?userId=${profile.id}&limit=300&days=30`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        setAppleSamples((data?.samples ?? []) as AppleHealthSample[]);
+        setAppleConnection((data?.connection ?? null) as AppleConnection | null);
+      })
+      .catch(() => setAppleSamples([]))
+      .finally(() => setAppleLoading(false));
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
     supabase
       .from("medications")
       .select("status")
@@ -490,6 +602,20 @@ export function InsightsScreen() {
         setTakenCount(rows.filter((r) => r.status === "taken").length);
         setTotalCount(rows.length);
       });
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    setMlLoading(true);
+    fetch("/api/risk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: profile.id }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setMlRisk(data as RiskResult))
+      .catch(() => null)
+      .finally(() => setMlLoading(false));
   }, [profile?.id]);
 
   const isLoading = healthProfile === undefined;
@@ -522,6 +648,41 @@ export function InsightsScreen() {
     : [...FALLBACK_INSIGHTS, medicationInsight];
 
   const activeMetrics = hasHealthProfile ? deriveMetrics(healthProfile!) : FALLBACK_METRICS;
+
+  const latestByMetric = appleSamples.reduce<Record<string, AppleHealthSample>>((acc, sample) => {
+    if (!acc[sample.metric]) acc[sample.metric] = sample;
+    return acc;
+  }, {});
+  const latestAppleAt = appleConnection?.lastSyncAt ?? appleSamples[0]?.measured_at ?? null;
+  const appleStatus: AppleConnectionStatus = appleConnection?.status ?? "not_connected";
+  const appleConnected = appleStatus === "connected";
+
+  const appleSteps = latestByMetric.steps;
+  const appleSleep = latestByMetric.sleep_hours;
+  const appleRestingHr = latestByMetric.heart_rate_resting;
+
+  async function updateAppleConnectionStatus(nextStatus: AppleConnectionStatus) {
+    if (!profile?.id) return;
+    setAppleActionLoading(true);
+    try {
+      const r = await fetch("/api/health-sync/apple", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profile.id, status: nextStatus }),
+      });
+      const data = await r.json().catch(() => null);
+      if (r.ok && data?.connection) {
+        setAppleConnection({
+          status: data.connection.status,
+          requestedAt: data.connection.requested_at ?? null,
+          connectedAt: data.connection.connected_at ?? null,
+          lastSyncAt: data.connection.last_sync_at ?? latestAppleAt ?? null,
+        });
+      }
+    } finally {
+      setAppleActionLoading(false);
+    }
+  }
 
   const diagnosisPattern = getDiagnosisPattern(profile?.diagnosis ?? null);
   const activeConnections: ConnectionItem[] = [
@@ -560,10 +721,22 @@ export function InsightsScreen() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h1 className="text-2xl font-light text-gray-800 mb-2">
-          {displayName ? `Insights de ${displayName.split(" ")[0]}` : "Health Insights"}
-        </h1>
-        <p className="text-sm text-gray-500">Análisis basado en tus datos de salud</p>
+        <h1 className="text-2xl font-semibold text-[#3b1060] mb-2">Insights de salud</h1>
+        <p className="text-sm text-gray-500">Tu resumen de bienestar personalizado</p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.06 }}
+        className="mb-6"
+      >
+        <CareGuideCard
+          title="Tu bienestar en contexto"
+          message="Analizo tus hábitos de sueño, actividad y estado de ánimo para darte una imagen clara de cómo estás."
+          tone="insights"
+          mood="happy"
+        />
       </motion.div>
 
       {/* Incomplete health profile banner */}
@@ -607,7 +780,7 @@ export function InsightsScreen() {
       >
         <GlassCard className="bg-gradient-to-br from-purple-100/60 to-pink-100/60">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-medium text-gray-800">Overall Health Score</h3>
+            <h3 className="text-base font-semibold text-[#3b1060]">Puntuación de salud</h3>
             <TrendingUp className="w-5 h-5 text-purple-600" />
           </div>
           <div className="flex items-end gap-2 mb-3">
@@ -620,6 +793,11 @@ export function InsightsScreen() {
               </span>
             )}
           </div>
+          {mlRisk?.health_score?.label && (
+            <p className={`text-xs font-medium mb-2 ${HEALTH_SCORE_LABEL[mlRisk.health_score.label]?.color ?? "text-gray-500"}`}>
+              {HEALTH_SCORE_LABEL[mlRisk.health_score.label]?.text} · evaluación IA
+            </p>
+          )}
           <div className="h-3 w-full bg-white/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"
@@ -633,10 +811,106 @@ export function InsightsScreen() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.16 }}
+        className="mb-6"
+      >
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">
+          Apple Health
+        </h3>
+        <GlassCard
+          className={
+            appleConnected
+              ? "bg-gradient-to-br from-emerald-50/70 to-teal-50/70"
+              : "bg-gradient-to-br from-gray-50/80 to-slate-50/80"
+          }
+        >
+          {appleLoading ? (
+            <div className="h-16 bg-gray-200/70 rounded-xl animate-pulse" />
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-800">
+                  {appleStatus === "connected"
+                    ? "Conectado y sincronizando"
+                    : appleStatus === "pending"
+                    ? "Conexión solicitada"
+                    : "Sin conexión detectada"}
+                </p>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    appleStatus === "connected"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : appleStatus === "pending"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {appleStatus === "connected"
+                    ? "Activo"
+                    : appleStatus === "pending"
+                    ? "En proceso"
+                    : "Pendiente"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {latestAppleAt
+                  ? `Última sincronización: ${new Date(latestAppleAt).toLocaleString()}`
+                  : "Aún no recibimos datos de Apple Health para este perfil."}
+              </p>
+              {appleConnected && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/70 rounded-xl p-2">
+                    <p className="text-[11px] text-gray-500">Pasos</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {appleSteps ? Math.round(appleSteps.value).toLocaleString() : "—"}
+                    </p>
+                  </div>
+                  <div className="bg-white/70 rounded-xl p-2">
+                    <p className="text-[11px] text-gray-500">Sueño</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {appleSleep ? `${appleSleep.value} h` : "—"}
+                    </p>
+                  </div>
+                  <div className="bg-white/70 rounded-xl p-2">
+                    <p className="text-[11px] text-gray-500">FC reposo</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {appleRestingHr ? `${Math.round(appleRestingHr.value)} bpm` : "—"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="pt-1">
+                {appleStatus === "not_connected" && (
+                  <button
+                    disabled={appleActionLoading}
+                    onClick={() => updateAppleConnectionStatus("pending")}
+                    className="text-xs px-3 py-2 rounded-full bg-[#6b21d6] text-white font-medium disabled:opacity-60"
+                  >
+                    {appleActionLoading ? "Guardando..." : "Conectar Apple Health"}
+                  </button>
+                )}
+                {appleStatus === "pending" && (
+                  <button
+                    disabled={appleActionLoading}
+                    onClick={() => updateAppleConnectionStatus("not_connected")}
+                    className="text-xs px-3 py-2 rounded-full bg-gray-200 text-gray-700 font-medium disabled:opacity-60"
+                  >
+                    {appleActionLoading ? "Guardando..." : "Cancelar solicitud"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </GlassCard>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="mb-6"
       >
-        <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">Key Metrics</h3>
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Métricas clave</h3>
         <div className="grid grid-cols-2 gap-3">
           {activeMetrics.map((metric, index) => {
             const Icon = metric.icon;
@@ -676,6 +950,73 @@ export function InsightsScreen() {
         </div>
       </motion.div>
 
+      {/* ML Risk Alerts */}
+      {(mlLoading || mlRisk) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="mb-6"
+        >
+          <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4" />
+            Evaluación de riesgo IA
+          </h3>
+          {mlLoading && (
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-20 bg-gray-200/70 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          )}
+          {!mlLoading && mlRisk && (() => {
+            const flagged = Object.entries(mlRisk.conditions).filter(([, v]) => v.flag);
+            if (flagged.length === 0) {
+              return (
+                <GlassCard className="bg-gradient-to-br from-green-50/80 to-emerald-50/80">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
+                    <p className="text-sm text-gray-700">
+                      Sin alertas de riesgo elevado detectadas por el modelo. ¡Buenas noticias!
+                    </p>
+                  </div>
+                </GlassCard>
+              );
+            }
+            return (
+              <div className="space-y-3">
+                {flagged.map(([cond, result]) => {
+                  const meta = CONDITION_META[cond];
+                  if (!meta) return null;
+                  const Icon = meta.icon;
+                  const pct = Math.round(result.probability * 100);
+                  return (
+                    <GlassCard key={cond} className="hover:scale-[1.02] transition-transform">
+                      <div className={`bg-gradient-to-r ${meta.color} rounded-[16px] p-4`}>
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0">
+                            <Icon className={`w-5 h-5 ${meta.iconColor}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-1">
+                              <h4 className="text-sm font-medium text-gray-800">{meta.label}</h4>
+                              <span className="text-xs bg-red-200/60 text-red-700 px-2 py-0.5 rounded-full">
+                                {pct}% prob.
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed">{meta.advice}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </motion.div>
+      )}
+
       {/* Connected Patterns */}
       {activeConnections.length > 0 && (
         <motion.div
@@ -684,19 +1025,16 @@ export function InsightsScreen() {
           transition={{ delay: 0.5 }}
           className="mb-6"
         >
-          <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider flex items-center gap-2">
             <Brain className="w-4 h-4" />
-            Connected Patterns
+            Patrones conectados
           </h3>
           {activeConnections.map((connection, index) => (
             <GlassCard key={index} className="bg-gradient-to-br from-amber-50/70 to-yellow-50/70">
               <h4 className="text-sm font-medium text-gray-800 mb-3">{connection.title}</h4>
               <div className="flex flex-wrap gap-2 mb-3">
                 {connection.items.map((item, i) => (
-                  <div
-                    key={i}
-                    className="bg-white/60 px-3 py-1.5 rounded-full text-xs text-gray-700"
-                  >
+                  <div key={i} className="bg-white/60 px-3 py-1.5 rounded-full text-xs text-gray-700">
                     {item}
                   </div>
                 ))}
@@ -714,7 +1052,7 @@ export function InsightsScreen() {
         transition={{ delay: 0.6 }}
         className="mb-6"
       >
-        <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">AI Insights</h3>
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Tus insights</h3>
         <div className="space-y-3">
           {activeInsights.map((insight, index) => {
             const Icon = insight.icon;
@@ -736,7 +1074,7 @@ export function InsightsScreen() {
                           <h4 className="text-sm font-medium text-gray-800">{insight.title}</h4>
                           {insight.priority === "high" && (
                             <span className="text-xs bg-red-200/60 text-red-700 px-2 py-0.5 rounded-full">
-                              High
+                              Urgente
                             </span>
                           )}
                         </div>
@@ -759,7 +1097,7 @@ export function InsightsScreen() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1 }}
       >
-        <button className="w-full py-4 rounded-[20px] bg-gradient-to-r from-purple-400 to-pink-400 text-white font-medium shadow-lg shadow-purple-300/30 hover:shadow-xl hover:shadow-purple-300/40 transition-all duration-300">
+        <button className="w-full py-4 rounded-[20px] bg-[#6b21d6] text-white font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:shadow-purple-900/35 transition-all duration-300">
           Agendar consulta médica
         </button>
       </motion.div>

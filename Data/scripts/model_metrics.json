@@ -1,0 +1,92 @@
+{
+  "Random Forest": {
+    "accuracy": 0.5108,
+    "auc_roc": 0.6845,
+    "report": {
+      "bajo": {
+        "precision": 0.6168761220825852,
+        "recall": 0.6458039657926886,
+        "f1-score": 0.6310086772875442,
+        "support": 10641.0
+      },
+      "medio": {
+        "precision": 0.4116469214083097,
+        "recall": 0.29644316270127374,
+        "f1-score": 0.34467341949004543,
+        "support": 8322.0
+      },
+      "alto": {
+        "precision": 0.4253677005970584,
+        "recall": 0.5799086757990868,
+        "f1-score": 0.49075940860215056,
+        "support": 5037.0
+      },
+      "accuracy": 0.5108333333333334,
+      "macro avg": {
+        "precision": 0.4846302480293178,
+        "recall": 0.507385268097683,
+        "f1-score": 0.48881383512658005,
+        "support": 24000.0
+      },
+      "weighted avg": {
+        "precision": 0.5055200667895053,
+        "recall": 0.5108333333333334,
+        "f1-score": 0.5022871113809144,
+        "support": 24000.0
+      }
+    }
+  },
+  "XGBoost": {
+    "accuracy": 0.5271,
+    "auc_roc": 0.6895,
+    "report": {
+      "bajo": {
+        "precision": 0.5794151376146789,
+        "recall": 0.7597030354290011,
+        "f1-score": 0.6574228438986703,
+        "support": 10641.0
+      },
+      "medio": {
+        "precision": 0.42122798667301287,
+        "recall": 0.3190338860850757,
+        "f1-score": 0.3630769230769231,
+        "support": 8322.0
+      },
+      "alto": {
+        "precision": 0.510547396528705,
+        "recall": 0.3795910264046059,
+        "f1-score": 0.4354361193350034,
+        "support": 5037.0
+      },
+      "accuracy": 0.527125,
+      "macro avg": {
+        "precision": 0.5037301736054656,
+        "recall": 0.4861093159728942,
+        "f1-score": 0.4853119621035322,
+        "support": 24000.0
+      },
+      "weighted avg": {
+        "precision": 0.5101101258652374,
+        "recall": 0.527125,
+        "f1-score": 0.5087689320359299,
+        "support": 24000.0
+      }
+    }
+  },
+  "features_usadas": [
+    "altura_cm",
+    "categoria_imc_enc",
+    "consumo_alcohol_enc",
+    "ejercicio_ultimo_mes_enc",
+    "grupo_edad_enc",
+    "peso_kg",
+    "sexo_enc",
+    "tiene_artritis_enc",
+    "tiene_asma_enc",
+    "tiene_cancer_piel_enc",
+    "tiene_cardiopatia_coronaria_enc",
+    "tiene_depresion_enc",
+    "tiene_diabetes_enc",
+    "tiene_otro_cancer_enc"
+  ]
+}

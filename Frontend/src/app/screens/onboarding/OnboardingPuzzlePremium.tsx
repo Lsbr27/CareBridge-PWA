@@ -141,8 +141,8 @@ export function OnboardingPuzzlePremium() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col items-center justify-between p-6 overflow-hidden">
-      <div className="w-full max-w-[425px] min-h-screen flex flex-col">
+    <div className="min-h-dvh bg-transparent flex flex-col items-center justify-between p-6 overflow-hidden">
+      <div className="w-full max-w-[425px] min-h-dvh flex flex-col">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

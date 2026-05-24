@@ -15,6 +15,9 @@ interface Question {
   options?: string[];
   placeholder?: string;
   optional?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
 }
 
 interface MealTimesState {
@@ -87,6 +90,26 @@ const questions: Question[] = [
     text: "¿Qué tipo de actividad física haces?",
     type: "text",
     placeholder: "Ej: yoga, caminar, gym...",
+  },
+  {
+    key: "weight_kg",
+    text: "¿Cuánto pesas aproximadamente?",
+    type: "number",
+    placeholder: "Peso en kg (ej: 65)",
+    optional: true,
+    min: 20,
+    max: 300,
+    step: 0.5,
+  },
+  {
+    key: "height_cm",
+    text: "¿Cuánto mides?",
+    type: "number",
+    placeholder: "Altura en cm (ej: 165)",
+    optional: true,
+    min: 100,
+    max: 250,
+    step: 1,
   },
   {
     key: "typical_diet",
@@ -216,6 +239,8 @@ export function HealthProfileQuizScreen() {
         physical_activity_frequency:
           finalAnswers.physical_activity_frequency ?? null,
         physical_activity_type: finalAnswers.physical_activity_type ?? null,
+        weight_kg: finalAnswers.weight_kg ? Number(finalAnswers.weight_kg) : null,
+        height_cm: finalAnswers.height_cm ? Number(finalAnswers.height_cm) : null,
         typical_diet: finalAnswers.typical_diet ?? null,
         meal_times: finalAnswers.meal_times ?? null,
         contraceptives: finalAnswers.contraceptives ?? null,
@@ -235,7 +260,7 @@ export function HealthProfileQuizScreen() {
 
   if (done) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-dvh flex flex-col items-center justify-center p-8 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -267,7 +292,7 @@ export function HealthProfileQuizScreen() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-6 pt-10">
+    <div className="min-h-dvh flex flex-col p-6 pt-10">
       {/* Progress bar */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -330,9 +355,9 @@ export function HealthProfileQuizScreen() {
               <div className="space-y-6">
                 <input
                   type="number"
-                  min={0}
-                  max={24}
-                  step={0.5}
+                  min={current.min ?? 0}
+                  max={current.max ?? 24}
+                  step={current.step ?? 0.5}
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   placeholder={current.placeholder}
@@ -340,10 +365,10 @@ export function HealthProfileQuizScreen() {
                 />
                 <button
                   onClick={() => goNext()}
-                  disabled={!textInput}
+                  disabled={!current.optional && !textInput}
                   className="w-full py-4 rounded-[20px] bg-gradient-to-r from-purple-400 to-pink-400 text-white font-medium disabled:opacity-40 transition-opacity"
                 >
-                  Continuar →
+                  {current.optional && !textInput ? "Saltar" : "Continuar →"}
                 </button>
               </div>
             )}
