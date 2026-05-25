@@ -1,11 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { spawn } from "child_process";
-import path from "path";
-import { getSupabaseAdmin } from "../../../lib/supabase";
-
-// Allow a custom Python path via env (defaults to the miniconda env that has the ML packages)
-const PYTHON = process.env.PYTHON_PATH ?? "/Users/lb/miniconda3/bin/python";
-const SCRIPT = path.join(process.cwd(), "..", "src", "predict_user.py");
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -15,67 +8,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
 
-  const admin = getSupabaseAdmin();
+  const mlServiceUrl = process.env.ML_SERVICE_URL;
+  if (!mlServiceUrl) {
+    return NextResponse.json({ error: "ML service not configured" }, { status: 503 });
+  }
 
-  const [profileRes, healthProfileRes, logsRes] = await Promise.all([
-    admin
-      .from("profiles")
-      .select("date_of_birth, gender, diagnosis")
-      .eq("id", userId)
-      .single(),
-    admin
-      .from("health_profile")
-      .select(
-        "physical_activity_frequency, mood_general, sleep_hours, weight_kg, height_cm"
-      )
-      .eq("profile_id", userId)
-      .maybeSingle(),
-    admin
-      .from("daily_logs")
-      .select("mood, pain")
-      .eq("profile_id", userId)
-      .order("date", { ascending: false })
-      .limit(30),
-  ]);
+  const mlApiKey = process.env.ML_SERVICE_API_KEY;
 
-  const payload = {
-    profile: profileRes.data ?? {},
-    health_profile: healthProfileRes.data ?? {},
-    daily_logs: logsRes.data ?? [],
-  };
-
-  return new Promise<NextResponse>((resolve) => {
-    const py = spawn(PYTHON, [SCRIPT]);
-    let stdout = "";
-    let stderr = "";
-
-    py.stdout.on("data", (chunk: Buffer) => (stdout += chunk.toString()));
-    py.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
-
-    py.on("close", (code: number) => {
-      if (code !== 0) {
-        console.error("[risk] predict_user.py exited", code, stderr.slice(0, 500));
-        return resolve(
-          NextResponse.json({ error: "ML inference failed" }, { status: 500 })
-        );
-      }
-      try {
-        const result = JSON.parse(stdout);
-        resolve(NextResponse.json(result));
-      } catch {
-        console.error("[risk] invalid ML output:", stdout.slice(0, 200));
-        resolve(NextResponse.json({ error: "Invalid ML output" }, { status: 500 }));
-      }
+  let res: Response;
+  try {
+    res = await fetch(`${mlServiceUrl}/predict`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(mlApiKey ? { "X-Api-Key": mlApiKey } : {}),
+      },
+      body: JSON.stringify({ userId }),
+      signal: AbortSignal.timeout(15_000),
     });
+  } catch (err) {
+    console.error("[risk] ML service unreachable:", err);
+    return NextResponse.json({ error: "ML service unreachable" }, { status: 502 });
+  }
 
-    py.on("error", (err: Error) => {
-      console.error("[risk] spawn error:", err.message);
-      resolve(
-        NextResponse.json({ error: "Could not start ML process" }, { status: 500 })
-      );
-    });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error("[risk] ML service error:", res.status, detail.slice(0, 200));
+    return NextResponse.json({ error: "ML inference failed" }, { status: 502 });
+  }
 
-    py.stdin.write(JSON.stringify(payload));
-    py.stdin.end();
-  });
+  const result = await res.json();
+  return NextResponse.json(result);
 }

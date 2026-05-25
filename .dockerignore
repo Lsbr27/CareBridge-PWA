@@ -1,0 +1,14 @@
+# Applied relative to repo root (the build context)
+Frontend/
+Negocio/
+Docs/
+Branding/
+data/
+src/
+supabase/
+.git/
+.github/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+*.md

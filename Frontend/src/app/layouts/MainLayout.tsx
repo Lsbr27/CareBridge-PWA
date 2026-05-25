@@ -2,20 +2,21 @@
 
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Pill, TrendingUp, User, CalendarDays } from "lucide-react";
+import { Bot, CalendarDays, Home, Pill, TrendingUp, User } from "lucide-react";
 
 const navItems = [
   { path: "/app", icon: Home, label: "Home" },
   { path: "/app/medications", icon: Pill, label: "Meds" },
   { path: "/app/appointments", icon: CalendarDays, label: "Citas" },
   { path: "/app/insights", icon: TrendingUp, label: "Insights" },
-  { path: "/app/profile", icon: User, label: "Profile" },
+  { path: "/app/chat", icon: Bot, label: "Asistente" },
+  { path: "/app/profile", icon: User, label: "Perfil" },
 ];
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isSetupRoute = pathname === "/app/profile/setup";
+  const isSetupRoute = pathname === "/app/profile/setup" || pathname === "/app/onboarding";
 
   const isActive = (path: string) => {
     if (path === "/app") {
@@ -49,7 +50,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
                   <button
                     key={item.path}
                     onClick={() => router.push(item.path)}
-                    className={`flex flex-col items-center gap-1 rounded-[16px] px-5 py-3 transition-all duration-300 ${
+                    className={`flex flex-col items-center gap-1 rounded-[16px] px-3 py-2.5 transition-all duration-300 ${
                       active
                         ? "bg-gradient-to-br from-purple-400/20 to-pink-400/20 text-purple-700"
                         : "text-gray-500 hover:text-gray-700"

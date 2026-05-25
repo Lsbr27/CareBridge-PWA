@@ -19,6 +19,7 @@ type Profile = {
   diagnosis: string | null;
   location: string | null;
   phone: string | null;
+  onboarding_chat_completed: boolean;
 };
 
 type ProfileUpdateInput = {
@@ -38,6 +39,7 @@ type AuthContextValue = {
   signInWithGoogle: (nextPath?: string | null) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileUpdateInput) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -86,13 +88,14 @@ function normalizeLegacyProfileRow(
     ...row,
     location: null,
     phone: null,
+    onboarding_chat_completed: false,
   };
 }
 
 async function loadProfile(userId: string) {
   const withOptionalColumns = await supabase
     .from("profiles")
-    .select("id, full_name, date_of_birth, gender, diagnosis, location, phone")
+    .select("id, full_name, date_of_birth, gender, diagnosis, location, phone, onboarding_chat_completed")
     .eq("id", userId)
     .maybeSingle();
 
@@ -287,6 +290,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function refreshProfile() {
+    if (!user) return;
+    const nextProfile = await loadProfile(user.id);
+    if (mountedRef.current) setProfile(nextProfile);
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -297,6 +306,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signInWithGoogle,
         signOut,
         updateProfile,
+        refreshProfile,
       }}
     >
       {children}

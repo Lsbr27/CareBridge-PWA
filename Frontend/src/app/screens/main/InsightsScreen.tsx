@@ -15,6 +15,9 @@ import {
   ArrowUpRight,
   Sparkles,
   ShieldAlert,
+  FileText,
+  ChevronDown,
+  ChevronUp,
   type LucideIcon,
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
@@ -68,6 +71,12 @@ type ConnectionItem = {
   title: string;
   items: string[];
   insight: string;
+};
+
+type ExamRecord = {
+  id: string;
+  analysis_text: string | null;
+  uploaded_at: string;
 };
 
 type AppleHealthSample = {
@@ -559,6 +568,9 @@ export function InsightsScreen() {
   const [appleLoading, setAppleLoading] = useState(false);
   const [appleConnection, setAppleConnection] = useState<AppleConnection | null>(null);
   const [appleActionLoading, setAppleActionLoading] = useState(false);
+  const [exams, setExams] = useState<ExamRecord[]>([]);
+  const [examsLoading, setExamsLoading] = useState(true);
+  const [expandedExamId, setExpandedExamId] = useState<string | null>(null);
 
   const displayName =
     profile?.full_name ||
@@ -603,6 +615,20 @@ export function InsightsScreen() {
         setTotalCount(rows.length);
       });
   }, [profile?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from("exam_documents")
+      .select("id, analysis_text, uploaded_at")
+      .eq("profile_id", user.id)
+      .order("uploaded_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        setExams((data ?? []) as ExamRecord[]);
+        setExamsLoading(false);
+      });
+  }, [user?.id]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -1089,6 +1115,68 @@ export function InsightsScreen() {
             );
           })}
         </div>
+      </motion.div>
+
+      {/* Exam History */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.9 }}
+        className="mb-6"
+      >
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider flex items-center gap-2">
+          <FileText className="w-4 h-4" />
+          Mis exámenes
+        </h3>
+        {examsLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-16 bg-gray-200/70 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        ) : exams.length === 0 ? (
+          <GlassCard>
+            <p className="text-sm text-slate-400 text-center py-3">
+              Aún no has guardado ningún examen. Usa el asistente para analizar uno.
+            </p>
+          </GlassCard>
+        ) : (
+          <div className="space-y-2">
+            {exams.map((exam) => {
+              const date = new Date(exam.uploaded_at).toLocaleDateString("es-CO", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              });
+              const isOpen = expandedExamId === exam.id;
+              const preview = exam.analysis_text?.slice(0, 100) ?? "";
+              return (
+                <GlassCard
+                  key={exam.id}
+                  className="cursor-pointer"
+                  onClick={() => setExpandedExamId(isOpen ? null : exam.id)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-400 font-medium">{date}</p>
+                      <p className="text-sm text-slate-700 mt-0.5 line-clamp-2">{preview}…</p>
+                    </div>
+                    {isOpen ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    )}
+                  </div>
+                  {isOpen && exam.analysis_text && (
+                    <div className="mt-3 pt-3 border-t border-white/50 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                      {exam.analysis_text}
+                    </div>
+                  )}
+                </GlassCard>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
 
       {/* Action Button */}

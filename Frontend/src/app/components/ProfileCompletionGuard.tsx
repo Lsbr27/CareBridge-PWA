@@ -19,22 +19,29 @@ export function ProfileCompletionGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+
   const isSetupRoute = pathname === "/app/profile/setup";
+  const isOnboardingRoute = pathname === "/app/onboarding";
   const isEditMode = searchParams.get("mode") === "edit";
+
   const profileComplete = isProfileComplete(profile);
+  const onboardingDone = profile?.onboarding_chat_completed ?? false;
+
   const shouldGoToSetup = !loading && !profileComplete && !isSetupRoute;
-  const shouldGoHome = !loading && profileComplete && isSetupRoute && !isEditMode;
+  const shouldGoHome =
+    !loading &&
+    profileComplete &&
+    ((isSetupRoute && !isEditMode) || (isOnboardingRoute && onboardingDone));
 
   useEffect(() => {
     if (shouldGoToSetup) {
       router.replace("/app/profile/setup");
       return;
     }
-
     if (shouldGoHome) {
       router.replace("/app");
     }
-  }, [router, shouldGoHome, shouldGoToSetup]);
+  }, [router, shouldGoToSetup, shouldGoHome]);
 
   if (loading) {
     return (
