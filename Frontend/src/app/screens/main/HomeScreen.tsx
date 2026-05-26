@@ -6,7 +6,10 @@ import {
   ArrowRight,
   Calendar,
   CheckCircle2,
+  ChevronRight,
   Circle,
+  ClipboardList,
+  Flame,
   Pill,
   Send,
   Stethoscope,
@@ -39,6 +42,56 @@ function isTomorrow(isoString: string): boolean {
     appt.getMonth() === tomorrow.getMonth() &&
     appt.getDate() === tomorrow.getDate()
   );
+}
+
+function isToday(isoString: string): boolean {
+  const appt = new Date(isoString);
+  const today = new Date();
+  return (
+    appt.getFullYear() === today.getFullYear() &&
+    appt.getMonth() === today.getMonth() &&
+    appt.getDate() === today.getDate()
+  );
+}
+
+function getGreeting(hour: number): string {
+  if (hour < 12) return "Buenos días";
+  if (hour < 18) return "Buenas tardes";
+  return "Buenas noches";
+}
+
+function getContextMessage(
+  hour: number,
+  pendingMeds: number,
+  nextApptToday: boolean,
+  loggedToday: boolean
+): string {
+  if (pendingMeds > 0 && hour < 14)
+    return `Tienes ${pendingMeds} ${pendingMeds === 1 ? "medicamento pendiente" : "medicamentos pendientes"} de esta mañana.`;
+  if (nextApptToday)
+    return "Tienes una cita hoy. ¿Ya preparaste tus preguntas?";
+  if (!loggedToday && hour >= 18)
+    return "¿Cómo te fue hoy? Registra tu log antes de dormir.";
+  if (pendingMeds === 0 && loggedToday)
+    return "Todo al día. Así se construye la salud.";
+  return "Bienvenida a tu resumen de salud.";
+}
+
+function calcLogStreak(logs: { logged_at: string }[]): number {
+  const days = new Set(logs.map((l) => l.logged_at.split("T")[0]));
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i <= 30; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    if (days.has(dateStr)) {
+      streak++;
+    } else if (i > 0) {
+      break;
+    }
+  }
+  return streak;
 }
 
 type Appointment = {
@@ -106,7 +159,9 @@ export function HomeScreen() {
 
   const [nextAppt, setNextAppt] = useState<Appointment | null | undefined>(undefined);
   const [medCounts, setMedCounts] = useState<MedCounts | undefined>(undefined);
-  const [todayLogExists, setTodayLogExists] = useState(true); // optimistic: assume exists
+  const [todayLogExists, setTodayLogExists] = useState(true);
+  const [loggedToday, setLoggedToday] = useState(false);
+  const [logStreak, setLogStreak] = useState(0);
   const [quickInput, setQuickInput] = useState("");
 
   useEffect(() => {
@@ -116,8 +171,10 @@ export function HomeScreen() {
       const now = new Date().toISOString();
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const [apptRes, medsRes, logRes] = await Promise.all([
+      const [apptRes, medsRes, logRes, recentLogsRes] = await Promise.all([
         supabase
           .from("appointments")
           .select("id, title, appointment_at, provider_name")
@@ -140,6 +197,13 @@ export function HomeScreen() {
           .gte("logged_at", todayStart.toISOString())
           .limit(1)
           .maybeSingle(),
+
+        supabase
+          .from("daily_logs")
+          .select("logged_at")
+          .eq("profile_id", profileId)
+          .gte("logged_at", thirtyDaysAgo.toISOString())
+          .order("logged_at", { ascending: false }),
       ]);
 
       setNextAppt(apptRes.data ?? null);
@@ -155,11 +219,21 @@ export function HomeScreen() {
         setMedCounts({ total: 0, taken: 0, pending: 0 });
       }
 
-      setTodayLogExists(!!logRes.data);
+      const hasLog = !!logRes.data;
+      setTodayLogExists(hasLog);
+      setLoggedToday(hasLog);
+
+      if (recentLogsRes.data) {
+        setLogStreak(calcLogStreak(recentLogsRes.data));
+      }
     }
 
     load();
   }, [profileId]);
+
+  const hour = new Date().getHours();
+  const nextApptToday = nextAppt ? isToday(nextAppt.appointment_at) : false;
+  const pendingMeds = medCounts?.pending ?? 0;
 
   const apptFormatted = nextAppt ? formatDateTimeES(nextAppt.appointment_at) : null;
   const medsLoading = medCounts === undefined;
@@ -173,6 +247,14 @@ export function HomeScreen() {
     setQuickInput("");
   };
 
+  const priorityCard = (() => {
+    if (pendingMeds > 0 && hour < 22) return "meds";
+    if (nextApptToday) return "appt";
+    if (!loggedToday && hour >= 16) return "log";
+    if (logStreak >= 3) return "streak";
+    return null;
+  })();
+
   return (
     <div className="p-6 pt-8 pb-28">
       {/* Header */}
@@ -183,11 +265,20 @@ export function HomeScreen() {
       >
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-2xl font-semibold text-[#3b1060]">Hola, {displayName}</h1>
+            <h1 className="text-2xl font-semibold text-[#3b1060]">
+              {getGreeting(hour)}, {displayName}
+            </h1>
             {profile?.diagnosis ? (
               <p className="text-sm text-purple-600 mt-1 font-medium">{profile.diagnosis}</p>
             ) : (
-              <p className="text-sm text-gray-500 mt-1">Bienvenida a tu resumen de salud</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {getContextMessage(hour, pendingMeds, nextApptToday, loggedToday)}
+              </p>
+            )}
+            {logStreak >= 2 && (
+              <p className="text-xs text-purple-500 font-medium mt-1">
+                🔥 {logStreak} días seguidos
+              </p>
             )}
           </div>
           <GhostMascot size="xs" mood="happy" />
@@ -242,7 +333,6 @@ export function HomeScreen() {
           className="mb-6"
         >
           <div className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[24px] p-4 shadow-sm">
-            {/* Widget header */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <GhostMascot size="xs" mood="happy" />
@@ -259,12 +349,10 @@ export function HomeScreen() {
               </button>
             </div>
 
-            {/* Assistant bubble */}
             <div className="bg-gradient-to-br from-purple-50/80 to-pink-50/60 border border-purple-100/60 rounded-[16px] rounded-tl-sm px-4 py-3 mb-3">
               <p className="text-sm text-slate-700 leading-relaxed">{nudge.message}</p>
             </div>
 
-            {/* Input */}
             <div className="flex items-center gap-2">
               <input
                 value={quickInput}
@@ -282,6 +370,91 @@ export function HomeScreen() {
               </button>
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* Priority action card */}
+      {priorityCard && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="mb-6"
+        >
+          {priorityCard === "meds" && (
+            <button
+              onClick={() => router.push("/app/medications")}
+              className="w-full text-left active:scale-[0.98] transition-transform"
+            >
+              <GlassCard className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                    <Pill className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {pendingMeds} {pendingMeds === 1 ? "medicamento pendiente" : "medicamentos pendientes"}
+                    </p>
+                    <p className="text-xs text-gray-500">Mantén tu tratamiento al día</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </div>
+              </GlassCard>
+            </button>
+          )}
+
+          {priorityCard === "appt" && nextAppt && (
+            <GlassCard className="bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-800">Tienes una cita hoy</p>
+                  <p className="text-xs text-gray-500">
+                    {nextAppt.provider_name ?? "Especialista"} · {apptFormatted?.time}
+                  </p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </div>
+            </GlassCard>
+          )}
+
+          {priorityCard === "log" && (
+            <button
+              onClick={() => router.push("/app/add")}
+              className="w-full text-left active:scale-[0.98] transition-transform"
+            >
+              <GlassCard className="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center flex-shrink-0">
+                    <ClipboardList className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">¿Cómo te sientes hoy?</p>
+                    <p className="text-xs text-gray-500">Registra tu log antes de dormir</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </div>
+              </GlassCard>
+            </button>
+          )}
+
+          {priorityCard === "streak" && (
+            <GlassCard className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-400 flex items-center justify-center flex-shrink-0">
+                  <Flame className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-800">
+                    🔥 {logStreak} días seguidos registrando tu salud
+                  </p>
+                  <p className="text-xs text-gray-500">¡Sigue así!</p>
+                </div>
+              </div>
+            </GlassCard>
+          )}
         </motion.div>
       )}
 
