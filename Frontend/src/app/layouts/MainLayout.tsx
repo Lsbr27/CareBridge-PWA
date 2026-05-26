@@ -42,7 +42,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
           style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
         >
           <div className="rounded-[24px] border border-white/60 bg-white/50 p-2 shadow-xl backdrop-blur-xl">
-            <div className="flex items-center justify-around">
+            <div className="flex items-center">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -50,14 +50,14 @@ export function MainLayout({ children }: { children: ReactNode }) {
                   <button
                     key={item.path}
                     onClick={() => router.push(item.path)}
-                    className={`flex flex-col items-center gap-1 rounded-[16px] px-3 py-2.5 transition-all duration-300 ${
+                    className={`flex-1 min-w-0 flex flex-col items-center gap-1 rounded-[16px] px-1 py-2.5 transition-all duration-300 ${
                       active
                         ? "bg-gradient-to-br from-purple-400/20 to-pink-400/20 text-purple-700"
                         : "text-gray-500 hover:text-gray-700"
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${active ? "scale-110" : ""} transition-transform`} />
-                    <span className="text-xs">{item.label}</span>
+                    <Icon className={`w-5 h-5 shrink-0 ${active ? "scale-110" : ""} transition-transform`} />
+                    <span className="text-[10px] leading-tight w-full text-center truncate">{item.label}</span>
                   </button>
                 );
               })}
