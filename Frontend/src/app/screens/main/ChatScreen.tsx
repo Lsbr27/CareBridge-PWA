@@ -35,7 +35,15 @@ type SpecialistCardPart = {
   reason: string;
   exam_type?: string;
 };
-type UIPart = TextPart | ImagePart | { type: "preview_url"; url: string } | SpecialistCardPart;
+type AppointmentCardPart = {
+  type: "appointment_card";
+  id: string;
+  title: string;
+  appointment_at: string;
+  specialty?: string | null;
+  provider_name?: string | null;
+};
+type UIPart = TextPart | ImagePart | { type: "preview_url"; url: string } | SpecialistCardPart | AppointmentCardPart;
 
 type Message = {
   id: string;
@@ -65,6 +73,7 @@ const TOOL_LABELS: Record<string, string> = {
   update_health_profile: "actualizando tu perfil",
   update_profile: "actualizando tu información",
   log_symptom: "registrando síntoma",
+  get_available_doctors: "buscando médicos disponibles",
   book_appointment: "agendando cita",
   suggest_specialist: "buscando especialista sugerido",
 };
@@ -237,6 +246,50 @@ function SpecialistCard({ specialty, reason }: { specialty: string; reason: stri
   );
 }
 
+// ─── Appointment booked card ──────────────────────────────────────────────────
+
+function AppointmentBookedCard({ title, appointment_at, specialty, provider_name }: AppointmentCardPart) {
+  const router = useRouter();
+
+  const formatted = (() => {
+    try {
+      const d = new Date(appointment_at);
+      const WEEKDAY = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const MONTH = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+      return `${WEEKDAY[d.getDay()]} ${d.getDate()} ${MONTH[d.getMonth()]} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    } catch {
+      return appointment_at;
+    }
+  })();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/80 rounded-[20px] p-4 max-w-[85%] shadow-sm"
+    >
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+          <CalendarDays className="text-white" style={{ width: "1.1rem", height: "1.1rem" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest mb-0.5">Cita agendada</p>
+          <p className="text-sm font-semibold text-slate-800 leading-snug">{provider_name ?? title}</p>
+          {specialty && <p className="text-xs text-slate-500 mt-0.5">{specialty}</p>}
+          <p className="text-xs text-emerald-700 font-medium mt-1">{formatted}</p>
+        </div>
+      </div>
+      <button
+        onClick={() => router.push("/app/appointments?tab=proximas")}
+        className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-semibold py-2.5 rounded-[14px] shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+      >
+        <CalendarDays className="w-4 h-4" />
+        Ver mis citas
+      </button>
+    </motion.div>
+  );
+}
+
 // ─── Message bubble ────────────────────────────────────────────────────────────
 
 function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: Message) => void }) {
@@ -244,6 +297,7 @@ function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: M
   const imagePreview = message.parts.find((p): p is { type: "preview_url"; url: string } => p.type === "preview_url");
   const textParts = message.parts.filter((p): p is TextPart => p.type === "text");
   const specialistCard = message.parts.find((p): p is SpecialistCardPart => p.type === "specialist_card");
+  const appointmentCard = message.parts.find((p): p is AppointmentCardPart => p.type === "appointment_card");
   const fullText = textParts.map((p) => p.text).join("");
   const canSave = !isUser && message.isExamAnalysis && !message.savedId && onSave;
 
@@ -282,6 +336,9 @@ function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: M
         )}
         {specialistCard && (
           <SpecialistCard specialty={specialistCard.specialty} reason={specialistCard.reason} />
+        )}
+        {appointmentCard && (
+          <AppointmentBookedCard {...appointmentCard} />
         )}
         {canSave && (
           <button
@@ -708,11 +765,13 @@ export function ChatScreen() {
             const chunk = JSON.parse(line) as {
               type: string; text?: string; tool?: string; message?: string;
               specialty?: string; reason?: string; exam_type?: string;
+              id?: string; title?: string; appointment_at?: string;
+              provider_name?: string;
             };
             if (chunk.type === "text" && chunk.text) {
               assistantText += chunk.text;
               setMessages((prev) => prev.map((m) => m.id === assistantId
-                ? { ...m, parts: [{ type: "text", text: assistantText }, ...m.parts.filter(p => p.type === "specialist_card")], toolsUsed } : m));
+                ? { ...m, parts: [{ type: "text", text: assistantText }, ...m.parts.filter(p => p.type === "specialist_card" || p.type === "appointment_card")], toolsUsed } : m));
               setActiveToolLabel(null);
             } else if (chunk.type === "specialist_card" && chunk.specialty) {
               const cardPart: SpecialistCardPart = {
@@ -723,6 +782,17 @@ export function ChatScreen() {
               };
               setMessages((prev) => prev.map((m) => m.id === assistantId
                 ? { ...m, parts: [...m.parts.filter(p => p.type !== "specialist_card"), cardPart] } : m));
+            } else if (chunk.type === "appointment_booked" && chunk.appointment_at) {
+              const apptPart: AppointmentCardPart = {
+                type: "appointment_card",
+                id: chunk.id ?? "",
+                title: chunk.title ?? "",
+                appointment_at: chunk.appointment_at,
+                specialty: chunk.specialty ?? null,
+                provider_name: chunk.provider_name ?? null,
+              };
+              setMessages((prev) => prev.map((m) => m.id === assistantId
+                ? { ...m, parts: [...m.parts.filter(p => p.type !== "appointment_card"), apptPart] } : m));
             } else if (chunk.type === "tool_start" && chunk.tool) {
               if (!toolsUsed.includes(chunk.tool)) toolsUsed.push(chunk.tool);
               setActiveToolLabel(TOOL_LABELS[chunk.tool] ?? chunk.tool);

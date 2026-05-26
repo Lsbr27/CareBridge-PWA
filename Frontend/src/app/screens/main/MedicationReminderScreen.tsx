@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { BellRing, Check, ChevronRight, Clock3, Pill } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
 import { CareGuideCard } from "../../components/brand/CareGuideCard";
@@ -14,6 +14,12 @@ type Medication = {
   dosage: string | null;
   frequency: string | null;
   schedule_time: string | null;
+  status: string;
+};
+
+type Log = {
+  medication_id: string;
+  scheduled_date: string;
   status: string;
 };
 
@@ -44,29 +50,91 @@ function FloatingPill({ className, gradient }: { className: string; gradient: st
   );
 }
 
+function calcStreak(logs: Log[], medIds: string[]): number {
+  if (medIds.length === 0) return 0;
+  let streak = 0;
+  const today = new Date();
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    const dayLogs = logs.filter((l) => l.scheduled_date === dateStr && l.status === "taken");
+    const takenIds = new Set(dayLogs.map((l) => l.medication_id));
+    if (medIds.every((id) => takenIds.has(id))) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function Heatmap({ logs, medIds }: { logs: Log[]; medIds: string[] }) {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const cells = Array.from({ length: 28 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (27 - i));
+    const dateStr = d.toISOString().split("T")[0];
+    if (dateStr > todayStr || medIds.length === 0) return { dateStr, color: "bg-gray-100" };
+    const dayLogs = logs.filter((l) => l.scheduled_date === dateStr && l.status === "taken");
+    const takenCount = new Set(dayLogs.map((l) => l.medication_id)).size;
+    if (takenCount === 0) return { dateStr, color: "bg-red-300" };
+    if (takenCount < medIds.length) return { dateStr, color: "bg-amber-300" };
+    return { dateStr, color: "bg-emerald-400" };
+  });
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        Últimos 28 días
+      </p>
+      <div className="mb-1 grid grid-cols-7 gap-1">
+        {WEEK_LABELS.map((l) => (
+          <div key={l} className="text-center text-[10px] font-semibold text-slate-400">
+            {l}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((cell) => (
+          <div key={cell.dateStr} className={`h-8 w-8 rounded-lg ${cell.color}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MedicationReminderScreen() {
   const { profile } = useAuth();
   const profileId = profile?.id;
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [todayLogs, setTodayLogs] = useState<Log[]>([]);
+  const [recentLogs, setRecentLogs] = useState<Log[]>([]);
+  const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState<Set<string>>(new Set());
+  const [showHistory, setShowHistory] = useState(false);
+
+  const today = new Date().toISOString().split("T")[0];
 
   async function markTaken(id: string) {
-    setMedications((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, status: "taken" } : m))
-    );
+    setTodayLogs((prev) => {
+      const existing = prev.find((l) => l.medication_id === id);
+      if (existing) return prev.map((l) => (l.medication_id === id ? { ...l, status: "taken" } : l));
+      return [...prev, { medication_id: id, scheduled_date: today, status: "taken" }];
+    });
     setMarking((prev) => new Set(prev).add(id));
 
-    const { error } = await supabase
-      .from("medications")
-      .update({ status: "taken" })
-      .eq("id", id);
-
-    if (error) {
-      setMedications((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, status: "pending" } : m))
-      );
-    }
+    await supabase.from("medication_logs").upsert(
+      {
+        profile_id: profileId,
+        medication_id: id,
+        scheduled_date: today,
+        status: "taken",
+        taken_at: new Date().toISOString(),
+      },
+      { onConflict: "medication_id,scheduled_date" }
+    );
 
     setMarking((prev) => {
       const next = new Set(prev);
@@ -74,8 +142,10 @@ export function MedicationReminderScreen() {
       return next;
     });
   }
+
   const weekDays = buildWeekDays();
-  const pendingCount = medications.filter((med) => med.status !== "taken").length;
+  const takenTodayIds = new Set(todayLogs.filter((l) => l.status === "taken").map((l) => l.medication_id));
+  const pendingCount = medications.filter((med) => !takenTodayIds.has(med.id)).length;
   const guideMessage = loading
     ? "Estoy preparando tu plan de hoy para que puedas revisarlo con calma."
     : pendingCount === 0 && medications.length > 0
@@ -87,19 +157,45 @@ export function MedicationReminderScreen() {
   useEffect(() => {
     if (!profileId) return;
 
-    async function fetchMedications() {
+    async function fetchAll() {
       setLoading(true);
-      const { data } = await supabase
-        .from("medications")
-        .select("id, name, dosage, frequency, schedule_time, status")
-        .eq("profile_id", profileId)
-        .order("schedule_time", { ascending: true });
 
-      setMedications(data ?? []);
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().split("T")[0];
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      const [medsResult, todayResult, recentResult] = await Promise.all([
+        supabase
+          .from("medications")
+          .select("id, name, dosage, frequency, schedule_time, status")
+          .eq("profile_id", profileId)
+          .order("schedule_time", { ascending: true }),
+        supabase
+          .from("medication_logs")
+          .select("medication_id, scheduled_date, status")
+          .eq("profile_id", profileId)
+          .eq("scheduled_date", todayStr),
+        supabase
+          .from("medication_logs")
+          .select("scheduled_date, medication_id, status")
+          .eq("profile_id", profileId)
+          .gte("scheduled_date", sixtyDaysAgoStr)
+          .order("scheduled_date", { ascending: false }),
+      ]);
+
+      const meds = medsResult.data ?? [];
+      const todayL = (todayResult.data ?? []) as Log[];
+      const recentL = (recentResult.data ?? []) as Log[];
+
+      setMedications(meds);
+      setTodayLogs(todayL);
+      setRecentLogs(recentL);
+      setStreak(calcStreak(recentL, meds.map((m) => m.id)));
       setLoading(false);
     }
 
-    fetchMedications();
+    fetchAll();
   }, [profileId]);
 
   return (
@@ -133,6 +229,11 @@ export function MedicationReminderScreen() {
         transition={{ delay: 0.06 }}
         className="mb-6"
       >
+        {streak > 0 && (
+          <p className="mb-2 text-sm font-medium text-purple-600">
+            🔥 {streak} días seguidos tomando todo
+          </p>
+        )}
         <CareGuideCard
           title="Tratamiento sin ruido"
           message={guideMessage}
@@ -175,7 +276,6 @@ export function MedicationReminderScreen() {
                 </div>
               </div>
 
-              {/* Week strip */}
               <div className="mb-6 flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
                 {weekDays.map((item) => (
                   <div
@@ -186,21 +286,24 @@ export function MedicationReminderScreen() {
                         : "bg-white/70"
                     }`}
                   >
-                    <p className={`text-[10px] font-semibold uppercase tracking-wider ${
-                      item.active ? "text-purple-200" : "text-slate-400"
-                    }`}>
+                    <p
+                      className={`text-[10px] font-semibold uppercase tracking-wider ${
+                        item.active ? "text-purple-200" : "text-slate-400"
+                      }`}
+                    >
                       {item.label}
                     </p>
-                    <p className={`text-lg font-bold leading-none ${
-                      item.active ? "text-white" : "text-slate-700"
-                    }`}>
+                    <p
+                      className={`text-lg font-bold leading-none ${
+                        item.active ? "text-white" : "text-slate-700"
+                      }`}
+                    >
                       {item.day}
                     </p>
                   </div>
                 ))}
               </div>
 
-              {/* Medication list */}
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((n) => (
@@ -217,7 +320,7 @@ export function MedicationReminderScreen() {
               ) : (
                 <div className="space-y-3">
                   {medications.map((med, i) => {
-                    const taken = med.status === "taken";
+                    const taken = takenTodayIds.has(med.id);
                     const busy = marking.has(med.id);
                     return (
                       <div
@@ -237,7 +340,9 @@ export function MedicationReminderScreen() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className={`truncate text-lg font-semibold tracking-[-0.04em] ${taken ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                                <p
+                                  className={`truncate text-lg font-semibold tracking-[-0.04em] ${taken ? "text-slate-400 line-through" : "text-slate-900"}`}
+                                >
                                   {med.name}
                                 </p>
                                 <p className="text-sm text-slate-500">
@@ -271,10 +376,37 @@ export function MedicationReminderScreen() {
                 </div>
               )}
 
-              <button className="mt-5 flex w-full items-center justify-between rounded-[20px] bg-slate-950 px-5 py-4 text-sm font-medium text-white shadow-[0_18px_28px_rgba(15,23,42,0.18)]">
+              <button
+                onClick={() => setShowHistory((v) => !v)}
+                className="mt-5 flex w-full items-center justify-between rounded-[20px] bg-slate-950 px-5 py-4 text-sm font-medium text-white shadow-[0_18px_28px_rgba(15,23,42,0.18)]"
+              >
                 Ver historial de adherencia
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight
+                  className={`h-4 w-4 transition-transform ${showHistory ? "rotate-90" : ""}`}
+                />
               </button>
+
+              <AnimatePresence>
+                {showHistory && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-4 pt-4">
+                      {streak > 0 && (
+                        <div className="rounded-[20px] bg-gradient-to-br from-purple-500 to-pink-500 p-4 text-center text-white">
+                          <p className="text-4xl font-bold">🔥 {streak}</p>
+                          <p className="mt-1 text-sm font-medium opacity-90">días seguidos</p>
+                        </div>
+                      )}
+                      <Heatmap logs={recentLogs} medIds={medications.map((m) => m.id)} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </GlassCard>
           </div>
         </div>

@@ -8,7 +8,7 @@ import {
   X, Calendar, Clock, CheckCircle2, ChevronRight,
   Star, MapPin, Globe, ShieldCheck, ChevronDown, ChevronUp,
   History, CalendarDays, Plus, BookOpen, Lightbulb, Video,
-  BarChart2, Heart, Sparkles,
+  BarChart2, Heart, Sparkles, Loader2, Stethoscope,
 } from "lucide-react";
 import { GlassCard } from "../../components/GlassCard";
 import { useAuth } from "../../providers/AuthProvider";
@@ -47,6 +47,8 @@ type Appointment = {
   doctor_slug: string | null; specialty: string | null;
   doctor_notes: string | null;
   lab_orders: unknown[]; prescription: unknown[];
+  patient_rating: number | null;
+  patient_review: string | null;
 };
 
 type TimeSlot = { date: string; time: string };
@@ -135,9 +137,12 @@ export function AppointmentsScreen() {
   const { profile } = useAuth();
   const searchParams = useSearchParams();
   const specialtyParam = searchParams.get("specialty");
+  const tabParam = searchParams.get("tab") as MainTab | null;
   const appliedParam = useRef(false);
 
-  const [mainTab, setMainTab] = useState<MainTab>("agendar");
+  const [mainTab, setMainTab] = useState<MainTab>(
+    tabParam === "proximas" || tabParam === "historial" ? tabParam : "agendar"
+  );
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
@@ -154,6 +159,9 @@ export function AppointmentsScreen() {
   const [pickedSlot, setPickedSlot] = useState<TimeSlot | null>(null);
   const [bookingState, setBookingState] = useState<BookingState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Rating state
+  const [ratingAppt, setRatingAppt] = useState<Appointment | null>(null);
 
   useEffect(() => {
     supabase.from("doctors").select("*").order("rating", { ascending: false })
@@ -181,6 +189,30 @@ export function AppointmentsScreen() {
       .order("appointment_at", { ascending: false })
       .then(({ data }) => { setAppointments((data as Appointment[]) ?? []); setLoadingAppts(false); });
   }, [profile]);
+
+  function openProfileBySlug(slug: string) {
+    const doc = doctors.find((d) => d.slug === slug);
+    if (doc) { openProfile(doc); return; }
+    supabase.from("doctors").select("*").eq("slug", slug).single()
+      .then(({ data }) => { if (data) openProfile(data as Doctor); });
+  }
+
+  async function submitRating(apptId: string, rating: number, review: string) {
+    const { error } = await supabase
+      .from("appointments")
+      .update({ patient_rating: rating, patient_review: review.trim() || null })
+      .eq("id", apptId);
+    if (!error) {
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.id === apptId
+            ? { ...a, patient_rating: rating, patient_review: review.trim() || null }
+            : a
+        )
+      );
+      setRatingAppt(null);
+    }
+  }
 
   function openProfile(doc: Doctor) {
     setProfileDoc(doc);
@@ -279,10 +311,22 @@ export function AppointmentsScreen() {
       {/* Tab content */}
       <AnimatePresence mode="wait">
         {mainTab === "historial" && (
-          <HistorialTab key="historial" appointments={past} loading={loadingAppts} />
+          <HistorialTab
+            key="historial"
+            appointments={past}
+            loading={loadingAppts}
+            onRate={setRatingAppt}
+            onOpenDoctor={openProfileBySlug}
+          />
         )}
         {mainTab === "proximas" && (
-          <ProximasTab key="proximas" appointments={upcoming} loading={loadingAppts} onBook={() => setMainTab("agendar")} />
+          <ProximasTab
+            key="proximas"
+            appointments={upcoming}
+            loading={loadingAppts}
+            onBook={() => setMainTab("agendar")}
+            onOpenDoctor={openProfileBySlug}
+          />
         )}
         {mainTab === "agendar" && (
           <AgendarTab
@@ -295,6 +339,24 @@ export function AppointmentsScreen() {
             recommended={recommended}
             onOpenProfile={openProfile}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Rating sheet */}
+      <AnimatePresence>
+        {ratingAppt && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+              onClick={() => setRatingAppt(null)}
+            />
+            <RatingSheet
+              appointment={ratingAppt}
+              onClose={() => setRatingAppt(null)}
+              onSubmit={submitRating}
+            />
+          </>
         )}
       </AnimatePresence>
 
@@ -340,7 +402,14 @@ export function AppointmentsScreen() {
 
 // ── Historial tab ─────────────────────────────────────────────────────────────
 
-function HistorialTab({ appointments, loading }: { appointments: Appointment[]; loading: boolean }) {
+function HistorialTab({
+  appointments, loading, onRate, onOpenDoctor,
+}: {
+  appointments: Appointment[];
+  loading: boolean;
+  onRate: (appt: Appointment) => void;
+  onOpenDoctor: (slug: string) => void;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
@@ -397,6 +466,38 @@ function HistorialTab({ appointments, loading }: { appointments: Appointment[]; 
                         <BookOpen className="w-3.5 h-3.5" /> Descargar prescripción
                       </button>
                     )}
+
+                    {/* Doctor profile + rating actions */}
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      {a.doctor_slug && (
+                        <button
+                          onClick={() => onOpenDoctor(a.doctor_slug!)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 font-medium"
+                        >
+                          <Stethoscope className="w-3.5 h-3.5" /> Ver médico
+                        </button>
+                      )}
+                      {a.patient_rating ? (
+                        <div className="flex items-center gap-1 ml-auto">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Star
+                              key={n}
+                              className={`w-3.5 h-3.5 ${n <= a.patient_rating! ? "fill-amber-400 stroke-amber-400" : "stroke-gray-200 fill-transparent"}`}
+                            />
+                          ))}
+                          {a.patient_review && (
+                            <span className="text-xs text-gray-400 ml-1 max-w-[120px] truncate">{a.patient_review}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onRate(a)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 font-medium ml-auto"
+                        >
+                          <Star className="w-3.5 h-3.5" /> Calificar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -410,7 +511,14 @@ function HistorialTab({ appointments, loading }: { appointments: Appointment[]; 
 
 // ── Próximas tab ──────────────────────────────────────────────────────────────
 
-function ProximasTab({ appointments, loading, onBook }: { appointments: Appointment[]; loading: boolean; onBook: () => void }) {
+function ProximasTab({
+  appointments, loading, onBook, onOpenDoctor,
+}: {
+  appointments: Appointment[];
+  loading: boolean;
+  onBook: () => void;
+  onOpenDoctor: (slug: string) => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -446,6 +554,16 @@ function ProximasTab({ appointments, loading, onBook }: { appointments: Appointm
                 Agendada
               </span>
             </div>
+            {a.doctor_slug && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => onOpenDoctor(a.doctor_slug!)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 font-medium"
+                >
+                  <Stethoscope className="w-3.5 h-3.5" /> Ver perfil del médico
+                </button>
+              </div>
+            )}
           </GlassCard>
         ))
       )}
@@ -889,6 +1007,108 @@ function SuccessView({ doc, slot, onClose }: { doc: Doctor; slot: TimeSlot; onCl
         </button>
       </motion.div>
     </div>
+  );
+}
+
+// ── Rating sheet ──────────────────────────────────────────────────────────────
+
+function RatingSheet({
+  appointment, onClose, onSubmit,
+}: {
+  appointment: Appointment;
+  onClose: () => void;
+  onSubmit: (apptId: string, rating: number, review: string) => Promise<void>;
+}) {
+  const [rating, setRating] = useState(appointment.patient_rating ?? 0);
+  const [review, setReview] = useState(appointment.patient_review ?? "");
+  const [hovered, setHovered] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const LABELS = ["", "Muy mala", "Mala", "Regular", "Buena", "Excelente"];
+
+  async function handleSubmit() {
+    if (!rating) return;
+    setLoading(true);
+    await onSubmit(appointment.id, rating, review);
+    setLoading(false);
+  }
+
+  const isEdit = !!appointment.patient_rating;
+
+  return (
+    <motion.div
+      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+      transition={{ type: "spring", damping: 28, stiffness: 300 }}
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[425px] z-50 bg-white/95 backdrop-blur-xl rounded-t-3xl shadow-2xl border-t border-white/60"
+    >
+      <div className="p-6">
+        {/* Handle */}
+        <div className="flex justify-center mb-5">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-widest mb-0.5">
+              {appointment.specialty ?? "Consulta médica"}
+            </p>
+            <h2 className="text-base font-semibold text-gray-800">{appointment.provider_name}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{formatDatetime(appointment.appointment_at)}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm font-semibold text-gray-700 mb-4 text-center">
+          {isEdit ? "Editar tu calificación" : "¿Cómo fue tu consulta?"}
+        </p>
+
+        {/* Star selector */}
+        <div className="flex justify-center gap-3 mb-2">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              onClick={() => setRating(n)}
+              onMouseEnter={() => setHovered(n)}
+              onMouseLeave={() => setHovered(0)}
+              className="transition-transform active:scale-90"
+            >
+              <Star
+                className={`w-10 h-10 transition-all ${
+                  n <= (hovered || rating)
+                    ? "fill-amber-400 stroke-amber-400 scale-110"
+                    : "stroke-gray-200 fill-transparent"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+
+        <p className="text-center text-xs font-medium text-amber-600 mb-5 h-4">
+          {LABELS[hovered || rating]}
+        </p>
+
+        {/* Review textarea */}
+        <textarea
+          value={review}
+          onChange={(e) => setReview(e.target.value)}
+          placeholder="Comparte tu experiencia (opcional)…"
+          rows={3}
+          className="w-full text-sm text-gray-700 placeholder-gray-400 border border-gray-200 rounded-2xl px-4 py-3 resize-none outline-none focus:border-purple-300 transition-colors bg-gray-50/60"
+        />
+
+        <button
+          onClick={handleSubmit}
+          disabled={!rating || loading}
+          className="w-full mt-4 py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold disabled:opacity-40 active:scale-[0.98] transition-all shadow-lg shadow-purple-100 flex items-center justify-center gap-2"
+        >
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          {loading ? "Enviando…" : isEdit ? "Actualizar calificación" : "Enviar calificación"}
+        </button>
+      </div>
+    </motion.div>
   );
 }
 

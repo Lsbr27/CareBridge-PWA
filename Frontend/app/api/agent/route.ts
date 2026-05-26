@@ -150,10 +150,26 @@ const TOOLS: Anthropic.Tool[] = [
           description: "Fecha y hora de la cita en formato ISO 8601 (e.g., \"2026-06-15T10:00:00-05:00\").",
         },
         specialty: { type: "string", description: "Especialidad médica (e.g., \"Cardiología\", \"Medicina general\")." },
-        provider_name: { type: "string", description: "Nombre del médico o proveedor (opcional)." },
+        provider_name: { type: "string", description: "Nombre completo del médico (e.g., \"Dra. Sofía Ramírez Torres\")." },
+        doctor_slug: { type: "string", description: "Slug del médico obtenido de get_available_doctors (e.g., \"sofia-ramirez-torres\"). Incluir siempre que sea posible." },
         notes: { type: "string", description: "Motivo de la cita u observaciones." },
       },
       required: ["title", "appointment_at"],
+    },
+  },
+  {
+    name: "get_available_doctors",
+    description:
+      "Obtiene los médicos disponibles con sus horarios reales para las próximas 2 semanas. SIEMPRE llama esta herramienta ANTES de agendar una cita para mostrarle al paciente opciones reales de médicos y horarios disponibles.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        specialty: {
+          type: "string",
+          description: "Filtrar por especialidad (e.g., 'Endocrinología', 'Cardiología'). Omitir para ver todos.",
+        },
+      },
+      required: [],
     },
   },
   {
@@ -387,6 +403,55 @@ async function handleTool(
     return JSON.stringify({ logged: true, symptoms, pain, energy, mood });
   }
 
+  // ── Read: get_available_doctors ──────────────────────────────────────────────
+  if (toolName === "get_available_doctors") {
+    const specialty = toolInput.specialty ? String(toolInput.specialty) : null;
+
+    const baseQuery = admin
+      .from("doctors")
+      .select("slug, title, name, specialty, rating, years_experience, consultation_price, consultation_duration_min, consultation_types, weekly_schedule")
+      .order("rating", { ascending: false })
+      .limit(6);
+
+    const { data, error } = specialty
+      ? await baseQuery.ilike("specialty", `%${specialty}%`)
+      : await baseQuery;
+
+    if (error) return JSON.stringify({ error: error.message });
+
+    const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const doctors = ((data ?? []) as Record<string, unknown>[]).map((doc) => {
+      const schedule = (doc.weekly_schedule as Record<string, string[]>) ?? {};
+      const slots: { date: string; times: string[] }[] = [];
+      for (let i = 1; i <= 14; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const dayName = DAY_NAMES[d.getDay()];
+        const times = schedule[dayName] ?? [];
+        if (times.length > 0) {
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          slots.push({ date: dateStr, times });
+        }
+      }
+      return {
+        slug: doc.slug,
+        name: `${doc.title} ${doc.name}`,
+        specialty: doc.specialty,
+        rating: doc.rating,
+        experience_years: doc.years_experience,
+        price_cop: doc.consultation_price,
+        duration_min: doc.consultation_duration_min,
+        consultation_types: doc.consultation_types,
+        available_slots: slots.slice(0, 4),
+      };
+    });
+
+    return JSON.stringify({ doctors });
+  }
+
   // ── Write: book_appointment ──────────────────────────────────────────────────
   if (toolName === "book_appointment") {
     const title = String(toolInput.title ?? "");
@@ -403,6 +468,7 @@ async function handleTool(
         appointment_at,
         specialty: toolInput.specialty ? String(toolInput.specialty) : null,
         provider_name: toolInput.provider_name ? String(toolInput.provider_name) : null,
+        doctor_slug: toolInput.doctor_slug ? String(toolInput.doctor_slug) : null,
         notes: toolInput.notes ? String(toolInput.notes) : null,
         status: "scheduled",
       })
@@ -423,7 +489,17 @@ async function handleTool(
 
 // ─── System prompt ─────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Eres CareGuide, el asistente de salud personal de CareMosaic. Ayudas a los pacientes a entender su salud, interpretar sus exámenes médicos, registrar cómo se sienten y prepararse para consultas médicas.
+function buildSystemPrompt(): string {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString("es-CO", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  const isoDate = today.toISOString().split("T")[0];
+
+  return `Eres CareGuide, el asistente de salud personal de CareMosaic. Ayudas a los pacientes a entender su salud, interpretar sus exámenes médicos, registrar cómo se sienten y prepararse para consultas médicas.
+
+## Fecha actual
+Hoy es ${dateStr} (${isoDate}). Usa esta fecha como referencia para todas las citas y menciones de tiempo. Cuando el paciente diga "la próxima semana", "en junio" o cualquier fecha relativa, calcula el año correcto basándote en esta fecha.
 
 ## Tu personalidad
 - Empático, claro y cercano. Nunca condescendiente.
@@ -437,7 +513,7 @@ const SYSTEM_PROMPT = `Eres CareGuide, el asistente de salud personal de CareMos
 - Ver y guardar el historial de exámenes.
 - Calcular riesgo de enfermedades crónicas con modelos ML.
 - Registrar síntomas y bienestar en el diario de salud.
-- Agendar citas con especialistas.
+- Agendar citas con especialistas REALES de la plataforma.
 
 ## Cuándo actualizar datos proactivamente
 Cuando el paciente mencione información de salud en la conversación, actualiza los datos y confirma brevemente:
@@ -452,11 +528,18 @@ Al actualizar, confirma con naturalidad: "Listo, guardé que duermes unas 5 hora
 ## Flujo para registrar síntomas
 Cuando el paciente mencione cómo se siente, pregunta brevemente: nivel de dolor (1-10), energía (1-10). Luego llama a log_symptom con los datos recopilados.
 
-## Flujo para agendar citas
-1. Pregunta: especialidad, fecha y hora preferida, motivo de la consulta.
-2. Confirma: "¿Agendo consulta de [especialidad] el [fecha] a las [hora]?"
-3. Si confirma, llama a book_appointment.
-4. Confirma: "¡Listo! Tu cita quedó agendada para el [fecha]."
+## Flujo para agendar citas (OBLIGATORIO seguir estos pasos)
+1. Llama a get_available_doctors con la especialidad que el paciente necesita (o sin filtro si no está seguro).
+2. Presenta al paciente los médicos disponibles con sus horarios reales. Muestra el nombre, especialidad, experiencia y los slots disponibles.
+3. Espera a que el paciente elija un médico y un horario específico de los disponibles.
+4. Confirma: "¿Agendo consulta con [nombre médico] el [fecha] a las [hora]?"
+5. Si el paciente confirma, llama a book_appointment con:
+   - title: "Consulta [especialidad] con [nombre médico]"
+   - appointment_at: la fecha y hora exacta en formato ISO 8601 con año ${today.getFullYear()} (e.g., "${isoDate}T09:00:00")
+   - specialty, provider_name, doctor_slug (del resultado de get_available_doctors)
+6. Confirma: "¡Listo! Tu cita quedó agendada."
+
+IMPORTANTE: NUNCA inventes médicos ni horarios. Solo usa los slots reales devueltos por get_available_doctors. Si el paciente pide una fecha/hora que no está disponible, dile los horarios reales disponibles para ese médico.
 
 ## Flujo para análisis de exámenes
 Cuando el paciente sube una imagen de examen:
@@ -478,9 +561,10 @@ Cuando el paciente sube una imagen de examen:
 - No diagnostiques enfermedades. Puedes explicar síntomas y riesgos.
 - Si un valor es CRÍTICO, recomienda buscar atención médica pronto.
 - Antes de actualizar diagnóstico o datos médicos sensibles, pide confirmación explícita.
-- Para book_appointment, SIEMPRE confirma fecha y hora con el paciente antes de ejecutar.
+- Para book_appointment, SIEMPRE confirma con el paciente antes de ejecutar.
 - Antes de responder preguntas sobre salud del paciente, usa las herramientas para obtener datos reales.
 - Responde siempre en español.`;
+}
 
 // ─── POST handler ─────────────────────────────────────────────────────────────
 
@@ -524,7 +608,7 @@ export async function POST(request: NextRequest) {
           const response = await client.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 4096,
-            system: SYSTEM_PROMPT,
+            system: buildSystemPrompt(),
             tools: TOOLS,
             messages: currentMessages,
           });
@@ -567,6 +651,25 @@ export async function POST(request: NextRequest) {
                 userId,
                 supabaseImagePath
               );
+
+              if (tool.name === "book_appointment") {
+                try {
+                  const parsed = JSON.parse(result) as Record<string, unknown>;
+                  if (parsed.booked) {
+                    const inp = tool.input as Record<string, unknown>;
+                    send({
+                      type: "appointment_booked",
+                      id: parsed.id,
+                      title: parsed.title,
+                      appointment_at: parsed.appointment_at,
+                      specialty: inp.specialty ?? null,
+                      provider_name: inp.provider_name ?? null,
+                      doctor_slug: inp.doctor_slug ?? null,
+                    });
+                  }
+                } catch { /* ignore parse errors */ }
+              }
+
               return {
                 type: "tool_result" as const,
                 tool_use_id: tool.id,

@@ -197,8 +197,17 @@ export function ProfileScreen() {
       >
         <GlassCard className="bg-gradient-to-br from-purple-100/50 to-pink-100/50">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 flex items-center justify-center">
-              <User className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 flex items-center justify-center overflow-hidden">
+              {user?.user_metadata?.avatar_url ? (
+                <img
+                  src={user.user_metadata.avatar_url}
+                  alt={profileName}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <User className="w-10 h-10 text-white" />
+              )}
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-light text-gray-800">{profileName}</h2>
