@@ -10,6 +10,7 @@ import {
   Circle,
   ClipboardList,
   Flame,
+  FlaskConical,
   Pill,
   Send,
   Stethoscope,
@@ -532,6 +533,7 @@ export function HomeScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.32 }}
+        className="mb-6"
       >
         <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Próxima cita</h3>
 
@@ -563,6 +565,32 @@ export function HomeScreen() {
             </div>
           </GlassCard>
         )}
+      </motion.div>
+
+      {/* Labs entry card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <h3 className="text-sm font-semibold text-[#6b21d6] mb-3 uppercase tracking-wider">Herramientas</h3>
+        <button
+          onClick={() => router.push("/app/laboratorios")}
+          className="w-full text-left active:scale-[0.98] transition-transform"
+        >
+          <GlassCard className="bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+                <FlaskConical className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800">CareGuide Laboratorios</p>
+                <p className="text-xs text-gray-500">Sube tu PDF y entiende tus resultados</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </div>
+          </GlassCard>
+        </button>
       </motion.div>
     </div>
   );
