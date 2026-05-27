@@ -11,6 +11,7 @@ import {
   Loader2,
   MessageSquarePlus,
   Send,
+  ShieldAlert,
   Stethoscope,
   X,
 } from "lucide-react";
@@ -43,7 +44,14 @@ type AppointmentCardPart = {
   specialty?: string | null;
   provider_name?: string | null;
 };
-type UIPart = TextPart | ImagePart | { type: "preview_url"; url: string } | SpecialistCardPart | AppointmentCardPart;
+type RiskAlertPart = {
+  type: "risk_alert";
+  condition: string;
+  label: string;
+  probability: number;
+  specialty: string;
+};
+type UIPart = TextPart | ImagePart | { type: "preview_url"; url: string } | SpecialistCardPart | AppointmentCardPart | RiskAlertPart;
 
 type Message = {
   id: string;
@@ -213,6 +221,45 @@ function AssistantText({ text }: { text: string }) {
   return <div className="space-y-0.5">{elements}</div>;
 }
 
+// ─── Risk alert card ──────────────────────────────────────────────────────────
+
+function RiskAlertCard({ label, probability, specialty }: RiskAlertPart) {
+  const router = useRouter();
+  const pct = Math.round(probability * 100);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-100/80 rounded-[20px] p-4 max-w-[85%] shadow-sm"
+    >
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+          <ShieldAlert style={{ width: "1.1rem", height: "1.1rem" }} className="text-red-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold text-red-500 uppercase tracking-widest mb-0.5">
+            Alerta IA detectada
+          </p>
+          <p className="text-sm font-semibold text-slate-800 leading-snug">{label}</p>
+          <p className="text-xs text-slate-500 mt-1">
+            El modelo detectó{" "}
+            <span className="font-semibold text-red-600">{pct}%</span> de probabilidad.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() =>
+          router.push(`/app/appointments?specialty=${encodeURIComponent(specialty)}&tab=agendar`)
+        }
+        className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold py-2.5 rounded-[14px] shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+      >
+        <CalendarDays className="w-4 h-4" />
+        Agendar con {specialty}
+      </button>
+    </motion.div>
+  );
+}
+
 // ─── Specialist card ──────────────────────────────────────────────────────────
 
 function SpecialistCard({ specialty, reason }: { specialty: string; reason: string }) {
@@ -298,6 +345,7 @@ function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: M
   const textParts = message.parts.filter((p): p is TextPart => p.type === "text");
   const specialistCard = message.parts.find((p): p is SpecialistCardPart => p.type === "specialist_card");
   const appointmentCard = message.parts.find((p): p is AppointmentCardPart => p.type === "appointment_card");
+  const riskAlerts = message.parts.filter((p): p is RiskAlertPart => p.type === "risk_alert");
   const fullText = textParts.map((p) => p.text).join("");
   const canSave = !isUser && message.isExamAnalysis && !message.savedId && onSave;
 
@@ -334,6 +382,9 @@ function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: M
             {isUser ? <p className="text-sm text-white leading-relaxed">{fullText}</p> : <AssistantText text={fullText} />}
           </div>
         )}
+        {riskAlerts.map((alert) => (
+          <RiskAlertCard key={alert.condition} {...alert} />
+        ))}
         {specialistCard && (
           <SpecialistCard specialty={specialistCard.specialty} reason={specialistCard.reason} />
         )}
@@ -767,12 +818,24 @@ export function ChatScreen() {
               specialty?: string; reason?: string; exam_type?: string;
               id?: string; title?: string; appointment_at?: string;
               provider_name?: string;
+              condition?: string; label?: string; probability?: number;
             };
             if (chunk.type === "text" && chunk.text) {
               assistantText += chunk.text;
               setMessages((prev) => prev.map((m) => m.id === assistantId
-                ? { ...m, parts: [{ type: "text", text: assistantText }, ...m.parts.filter(p => p.type === "specialist_card" || p.type === "appointment_card")], toolsUsed } : m));
+                ? { ...m, parts: [{ type: "text", text: assistantText }, ...m.parts.filter(p => p.type === "specialist_card" || p.type === "appointment_card" || p.type === "risk_alert")], toolsUsed } : m));
               setActiveToolLabel(null);
+            } else if (chunk.type === "risk_alert" && chunk.condition) {
+              const alertPart: RiskAlertPart = {
+                type: "risk_alert",
+                condition: chunk.condition,
+                label: chunk.label ?? chunk.condition,
+                probability: chunk.probability ?? 0,
+                specialty: chunk.specialty ?? "",
+              };
+              setMessages((prev) => prev.map((m) => m.id === assistantId
+                ? { ...m, parts: [...m.parts.filter(p => !(p.type === "risk_alert" && (p as RiskAlertPart).condition === chunk.condition)), alertPart] }
+                : m));
             } else if (chunk.type === "specialist_card" && chunk.specialty) {
               const cardPart: SpecialistCardPart = {
                 type: "specialist_card",

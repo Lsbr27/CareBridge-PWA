@@ -197,6 +197,18 @@ const TOOLS: Anthropic.Tool[] = [
   },
 ];
 
+// ─── ML risk condition metadata ───────────────────────────────────────────────
+
+const RISK_CONDITION_META: Record<string, { label: string; specialty: string }> = {
+  diabetes:         { label: "Riesgo de diabetes",            specialty: "Endocrinología" },
+  high_bp:          { label: "Riesgo de hipertensión",         specialty: "Cardiología" },
+  heart_disease:    { label: "Riesgo cardiovascular",          specialty: "Cardiología" },
+  depression:       { label: "Riesgo de depresión",            specialty: "Psiquiatría" },
+  asthma:           { label: "Riesgo de asma",                 specialty: "Neumología" },
+  high_cholesterol: { label: "Colesterol potencialmente alto", specialty: "Cardiología" },
+  stroke:           { label: "Riesgo de ACV",                  specialty: "Neurología" },
+};
+
 // ─── Tool handlers ─────────────────────────────────────────────────────────────
 
 async function handleTool(
@@ -303,7 +315,7 @@ async function handleTool(
       const res = await fetch(`${mlUrl}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": mlKey },
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify({ userId }),
         signal: AbortSignal.timeout(20_000),
       });
       if (!res.ok) return JSON.stringify({ error: `ML service error ${res.status}` });
@@ -525,6 +537,9 @@ Cuando el paciente mencione información de salud en la conversación, actualiza
 
 Al actualizar, confirma con naturalidad: "Listo, guardé que duermes unas 5 horas. ¿Algo más que quieras contarme?"
 
+## Evaluación de riesgo proactiva con IA (OBLIGATORIO)
+Cada vez que el paciente mencione síntomas, malestar, dolor, fatiga, ansiedad, tristeza o cualquier indicador de salud, SIEMPRE llama a get_patient_risk en el mismo turno además de log_symptom. Hazlo en paralelo. El sistema mostrará automáticamente alertas visuales de riesgo con opción de agendar cita — no tienes que describirlas tú, solo ejecútalas silenciosamente. Esto también aplica cuando el usuario pregunta explícitamente por su riesgo.
+
 ## Flujo para registrar síntomas
 Cuando el paciente mencione cómo se siente, pregunta brevemente: nivel de dolor (1-10), energía (1-10). Luego llama a log_symptom con los datos recopilados.
 
@@ -666,6 +681,30 @@ export async function POST(request: NextRequest) {
                       provider_name: inp.provider_name ?? null,
                       doctor_slug: inp.doctor_slug ?? null,
                     });
+                  }
+                } catch { /* ignore parse errors */ }
+              }
+
+              if (tool.name === "get_patient_risk") {
+                try {
+                  const parsed = JSON.parse(result) as {
+                    conditions?: Record<string, { flag: boolean; probability: number }>;
+                  };
+                  if (parsed.conditions) {
+                    for (const [cond, data] of Object.entries(parsed.conditions)) {
+                      if (data.flag) {
+                        const meta = RISK_CONDITION_META[cond];
+                        if (meta) {
+                          send({
+                            type: "risk_alert",
+                            condition: cond,
+                            label: meta.label,
+                            probability: data.probability,
+                            specialty: meta.specialty,
+                          });
+                        }
+                      }
+                    }
                   }
                 } catch { /* ignore parse errors */ }
               }
