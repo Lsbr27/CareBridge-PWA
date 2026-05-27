@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type LabsAgentResponse = {
   ok: true;
@@ -418,6 +417,8 @@ function containsAny(text: string, words: string[]) {
 }
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
   const data = await pdfParse(buffer);
   return normalizeText(data.text);
 }
