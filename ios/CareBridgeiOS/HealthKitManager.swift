@@ -49,7 +49,6 @@ final class HealthKitManager {
     private let bodyMassType = HKQuantityType.quantityType(forIdentifier: .bodyMass)
     private let systolicType = HKQuantityType.quantityType(forIdentifier: .bloodPressureSystolic)
     private let diastolicType = HKQuantityType.quantityType(forIdentifier: .bloodPressureDiastolic)
-    private var lastKnownStepsToday = 0
 
     func requestAuthorization(completion: @escaping (Result<Void, Error>) -> Void) {
         guard HKHealthStore.isHealthDataAvailable() else {
@@ -96,29 +95,23 @@ final class HealthKitManager {
         fetchStepsToday { [weak self] stepsResult in
             guard let self else { return }
 
-            let steps: Int
             switch stepsResult {
-            case .success(let value):
-                self.lastKnownStepsToday = value
-                steps = value
-            case .failure:
-                // Preserve the last known steps to avoid overriding valid values with 0
-                // when HealthKit temporarily returns no data for a strict predicate.
-                steps = self.lastKnownStepsToday
-            }
-
-            self.fetchLastNightSleepHours { sleep in
-                self.fetchLatestQuantity(for: self.restingHeartRateType, unit: HKUnit.count().unitDivided(by: .minute())) { hr in
-                    self.fetchLatestQuantity(for: self.bodyMassType, unit: .gramUnit(with: .kilo)) { weight in
-                        self.fetchLatestBloodPressure { bloodPressure in
-                            completion(.success(HealthSnapshot(
-                                stepsToday: steps,
-                                sleepHoursLastNight: sleep,
-                                restingHeartRate: hr,
-                                bodyWeightKg: weight,
-                                bloodPressure: bloodPressure,
-                                updatedAt: Date()
-                            )))
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let steps):
+                self.fetchLastNightSleepHours { sleep in
+                    self.fetchLatestQuantity(for: self.restingHeartRateType, unit: HKUnit.count().unitDivided(by: .minute())) { hr in
+                        self.fetchLatestQuantity(for: self.bodyMassType, unit: .gramUnit(with: .kilo)) { weight in
+                            self.fetchLatestBloodPressure { bloodPressure in
+                                completion(.success(HealthSnapshot(
+                                    stepsToday: steps,
+                                    sleepHoursLastNight: sleep,
+                                    restingHeartRate: hr,
+                                    bodyWeightKg: weight,
+                                    bloodPressure: bloodPressure,
+                                    updatedAt: Date()
+                                )))
+                            }
                         }
                     }
                 }
@@ -132,34 +125,17 @@ final class HealthKitManager {
             return
         }
 
-        let calendar = Calendar.autoupdatingCurrent
-        let now = Date()
-        let startOfDay = calendar.startOfDay(for: now)
-        guard let anchorDate = calendar.date(bySettingHour: 0, minute: 0, second: 0, of: now) else {
-            completion(.failure(HealthError.dataTypesUnavailable))
-            return
-        }
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date(), options: .strictStartDate)
 
-        let interval = DateComponents(day: 1)
-        let query = HKStatisticsCollectionQuery(
-            quantityType: stepsType,
-            quantitySamplePredicate: nil,
-            options: .cumulativeSum,
-            anchorDate: anchorDate,
-            intervalComponents: interval
-        )
-
-        query.initialResultsHandler = { _, collection, error in
+        let query = HKStatisticsQuery(quantityType: stepsType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, error in
             if let error {
                 completion(.failure(error))
                 return
             }
 
-            var count = 0
-            collection?.enumerateStatistics(from: startOfDay, to: now) { stats, _ in
-                count = Int(stats.sumQuantity()?.doubleValue(for: .count()) ?? 0)
-            }
-
+            let count = Int(stats?.sumQuantity()?.doubleValue(for: .count()) ?? 0)
             completion(.success(count))
         }
 

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { ChatScreen } from "../../../src/app/screens/main/ChatScreen";
 
 export default function ChatPage() {
-  redirect("/app/laboratorios");
+  return <ChatScreen />;
 }

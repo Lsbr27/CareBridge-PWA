@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Flame,
   Pill,
+  Send,
   Stethoscope,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -161,6 +162,7 @@ export function HomeScreen() {
   const [todayLogExists, setTodayLogExists] = useState(true);
   const [loggedToday, setLoggedToday] = useState(false);
   const [logStreak, setLogStreak] = useState(0);
+  const [quickInput, setQuickInput] = useState("");
 
   useEffect(() => {
     if (!profileId) return;
@@ -239,6 +241,12 @@ export function HomeScreen() {
 
   const nudge = resolveNudge(medCounts, nextAppt, todayLogExists);
 
+  const handleQuickSend = () => {
+    if (!quickInput.trim()) return;
+    router.push(`/app/chat?new=1&q=${encodeURIComponent(quickInput.trim())}`);
+    setQuickInput("");
+  };
+
   const priorityCard = (() => {
     if (pendingMeds > 0 && hour < 22) return "meds";
     if (nextApptToday) return "appt";
@@ -316,7 +324,7 @@ export function HomeScreen() {
         </motion.div>
       )}
 
-      {/* Daily check-in summary card — shown when onboarding is complete */}
+      {/* Daily check-in chat widget — shown when onboarding is complete */}
       {profile?.onboarding_chat_completed && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -330,19 +338,36 @@ export function HomeScreen() {
                 <GhostMascot size="xs" mood="happy" />
                 <div>
                   <p className="text-xs font-semibold text-purple-700">CareGuide</p>
-                  <p className="text-[10px] text-slate-400">Resumen de hoy</p>
+                  <p className="text-[10px] text-slate-400">Tu asistente de salud</p>
                 </div>
               </div>
               <button
-                onClick={() => router.push("/app/laboratorios")}
+                onClick={() => router.push("/app/chat")}
                 className="text-[11px] text-purple-500 font-medium active:opacity-60"
               >
-                Ver Labs →
+                Ver historial →
               </button>
             </div>
 
             <div className="bg-gradient-to-br from-purple-50/80 to-pink-50/60 border border-purple-100/60 rounded-[16px] rounded-tl-sm px-4 py-3 mb-3">
               <p className="text-sm text-slate-700 leading-relaxed">{nudge.message}</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                value={quickInput}
+                onChange={(e) => setQuickInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleQuickSend(); }}
+                placeholder="Cuéntame cómo estás…"
+                className="flex-1 bg-purple-50/40 border border-purple-100 rounded-full px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-purple-300 transition-colors"
+              />
+              <button
+                onClick={handleQuickSend}
+                disabled={!quickInput.trim()}
+                className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-md disabled:opacity-40 active:scale-95 transition-transform"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </motion.div>
