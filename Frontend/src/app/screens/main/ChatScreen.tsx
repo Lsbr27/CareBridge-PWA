@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Camera,
+  CheckCircle2,
   FileText,
   ImageIcon,
   Loader2,
@@ -51,7 +52,12 @@ type RiskAlertPart = {
   probability: number;
   specialty: string;
 };
-type UIPart = TextPart | ImagePart | { type: "preview_url"; url: string } | SpecialistCardPart | AppointmentCardPart | RiskAlertPart;
+type RiskSummaryPart = {
+  type: "risk_summary";
+  conditions: Record<string, { probability: number; flag: boolean; threshold: number }>;
+  health_score: { label: string; class: number } | null;
+};
+type UIPart = TextPart | ImagePart | { type: "preview_url"; url: string } | SpecialistCardPart | AppointmentCardPart | RiskAlertPart | RiskSummaryPart;
 
 type Message = {
   id: string;
@@ -221,6 +227,108 @@ function AssistantText({ text }: { text: string }) {
   return <div className="space-y-0.5">{elements}</div>;
 }
 
+// ─── Condition label map ──────────────────────────────────────────────────────
+
+const RISK_LABELS: Record<string, string> = {
+  diabetes:         "Diabetes",
+  high_bp:          "Hipertensión",
+  heart_disease:    "Enf. cardíaca",
+  depression:       "Depresión",
+  asthma:           "Asma",
+  high_cholesterol: "Colesterol alto",
+  stroke:           "ACV",
+};
+
+const HEALTH_SCORE_COLORS: Record<string, string> = {
+  bajo:  "text-red-600",
+  medio: "text-amber-600",
+  alto:  "text-emerald-600",
+};
+
+// ─── Risk summary card (always shown after get_patient_risk) ──────────────────
+
+function RiskSummaryCard({ conditions, health_score }: RiskSummaryPart) {
+  const router = useRouter();
+  const entries = Object.entries(conditions);
+  const flaggedEntries = entries.filter(([, v]) => v.flag);
+  const allClear = flaggedEntries.length === 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className="bg-white/80 backdrop-blur-sm border border-purple-100/80 rounded-[20px] p-4 w-full max-w-[92%] shadow-sm"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+          <ShieldAlert className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-semibold text-slate-800">Evaluación de riesgo</p>
+            <span className="text-[9px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full tracking-wide">
+              XGBoost · BRFSS
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            {allClear ? "Sin riesgos elevados detectados" : `${flaggedEntries.length} alerta${flaggedEntries.length > 1 ? "s" : ""} de riesgo`}
+          </p>
+        </div>
+        {allClear
+          ? <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          : <ShieldAlert className="w-5 h-5 text-red-400 flex-shrink-0" />
+        }
+      </div>
+
+      {/* Conditions grid */}
+      <div className="space-y-1.5 mb-3">
+        {entries.map(([cond, result]) => {
+          const pct = Math.round(result.probability * 100);
+          const flagged = result.flag;
+          return (
+            <div key={cond} className="flex items-center gap-2">
+              <span className={`text-[11px] w-28 flex-shrink-0 ${flagged ? "text-red-700 font-semibold" : "text-slate-500"}`}>
+                {RISK_LABELS[cond] ?? cond}
+              </span>
+              <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${flagged ? "bg-red-400" : "bg-emerald-400"}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className={`text-[10px] w-7 text-right font-medium flex-shrink-0 ${flagged ? "text-red-600" : "text-slate-400"}`}>
+                {pct}%
+              </span>
+              {flagged && <span className="text-[9px] bg-red-100 text-red-600 px-1 py-0.5 rounded-full flex-shrink-0">↑</span>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Health score row */}
+      {health_score?.label && (
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <span className="text-[10px] text-slate-400">Salud percibida (IA)</span>
+          <span className={`text-[11px] font-semibold ${HEALTH_SCORE_COLORS[health_score.label] ?? "text-slate-500"}`}>
+            {health_score.label === "bajo" ? "Baja" : health_score.label === "medio" ? "Media" : "Alta"}
+          </span>
+        </div>
+      )}
+
+      {/* CTA to insights */}
+      {!allClear && (
+        <button
+          onClick={() => router.push("/app/insights")}
+          className="mt-3 w-full text-xs text-purple-600 font-medium py-2 rounded-[12px] bg-purple-50 active:bg-purple-100 transition-colors"
+        >
+          Ver análisis completo en Insights →
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
 // ─── Risk alert card ──────────────────────────────────────────────────────────
 
 function RiskAlertCard({ label, probability, specialty }: RiskAlertPart) {
@@ -237,13 +345,19 @@ function RiskAlertCard({ label, probability, specialty }: RiskAlertPart) {
           <ShieldAlert style={{ width: "1.1rem", height: "1.1rem" }} className="text-red-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-red-500 uppercase tracking-widest mb-0.5">
-            Alerta IA detectada
-          </p>
+          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+            <p className="text-[10px] font-semibold text-red-500 uppercase tracking-widest">
+              Alerta de riesgo
+            </p>
+            <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-semibold">
+              XGBoost
+            </span>
+          </div>
           <p className="text-sm font-semibold text-slate-800 leading-snug">{label}</p>
           <p className="text-xs text-slate-500 mt-1">
             El modelo detectó{" "}
-            <span className="font-semibold text-red-600">{pct}%</span> de probabilidad.
+            <span className="font-semibold text-red-600">{pct}%</span>{" "}
+            de probabilidad basado en tu perfil y síntomas.
           </p>
         </div>
       </div>
@@ -346,6 +460,7 @@ function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: M
   const specialistCard = message.parts.find((p): p is SpecialistCardPart => p.type === "specialist_card");
   const appointmentCard = message.parts.find((p): p is AppointmentCardPart => p.type === "appointment_card");
   const riskAlerts = message.parts.filter((p): p is RiskAlertPart => p.type === "risk_alert");
+  const riskSummary = message.parts.find((p): p is RiskSummaryPart => p.type === "risk_summary");
   const fullText = textParts.map((p) => p.text).join("");
   const canSave = !isUser && message.isExamAnalysis && !message.savedId && onSave;
 
@@ -382,6 +497,7 @@ function MessageBubble({ message, onSave }: { message: Message; onSave?: (msg: M
             {isUser ? <p className="text-sm text-white leading-relaxed">{fullText}</p> : <AssistantText text={fullText} />}
           </div>
         )}
+        {riskSummary && <RiskSummaryCard {...riskSummary} />}
         {riskAlerts.map((alert) => (
           <RiskAlertCard key={alert.condition} {...alert} />
         ))}
@@ -819,12 +935,23 @@ export function ChatScreen() {
               id?: string; title?: string; appointment_at?: string;
               provider_name?: string;
               condition?: string; label?: string; probability?: number;
+              conditions?: Record<string, { probability: number; flag: boolean; threshold: number }>;
+              health_score?: { label: string; class: number } | null;
             };
             if (chunk.type === "text" && chunk.text) {
               assistantText += chunk.text;
               setMessages((prev) => prev.map((m) => m.id === assistantId
-                ? { ...m, parts: [{ type: "text", text: assistantText }, ...m.parts.filter(p => p.type === "specialist_card" || p.type === "appointment_card" || p.type === "risk_alert")], toolsUsed } : m));
+                ? { ...m, parts: [{ type: "text", text: assistantText }, ...m.parts.filter(p => p.type === "specialist_card" || p.type === "appointment_card" || p.type === "risk_alert" || p.type === "risk_summary")], toolsUsed } : m));
               setActiveToolLabel(null);
+            } else if (chunk.type === "risk_summary" && chunk.conditions) {
+              const summaryPart: RiskSummaryPart = {
+                type: "risk_summary",
+                conditions: chunk.conditions,
+                health_score: chunk.health_score ?? null,
+              };
+              setMessages((prev) => prev.map((m) => m.id === assistantId
+                ? { ...m, parts: [...m.parts.filter(p => p.type !== "risk_summary"), summaryPart] }
+                : m));
             } else if (chunk.type === "risk_alert" && chunk.condition) {
               const alertPart: RiskAlertPart = {
                 type: "risk_alert",

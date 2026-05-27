@@ -688,9 +688,17 @@ export async function POST(request: NextRequest) {
               if (tool.name === "get_patient_risk") {
                 try {
                   const parsed = JSON.parse(result) as {
-                    conditions?: Record<string, { flag: boolean; probability: number }>;
+                    conditions?: Record<string, { flag: boolean; probability: number; threshold: number }>;
+                    health_score?: { label: string; class: number; probabilities: Record<string, number> };
                   };
                   if (parsed.conditions) {
+                    // Always emit the full summary card so the user sees all 7 models ran
+                    send({
+                      type: "risk_summary",
+                      conditions: parsed.conditions,
+                      health_score: parsed.health_score ?? null,
+                    });
+                    // Emit individual alert cards only for flagged conditions (with booking CTA)
                     for (const [cond, data] of Object.entries(parsed.conditions)) {
                       if (data.flag) {
                         const meta = RISK_CONDITION_META[cond];
