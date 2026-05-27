@@ -93,7 +93,7 @@ def predict(req: PredictRequest):
 
     logs_res = sb.table("daily_logs").select("mood, pain").eq(
         "profile_id", req.userId
-    ).order("date", desc=True).limit(30).execute()
+    ).order("logged_at", desc=True).limit(30).execute()
 
     features = map_to_model_features(
         profile_res.data or {},
