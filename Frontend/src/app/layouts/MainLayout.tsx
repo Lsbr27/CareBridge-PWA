@@ -2,14 +2,14 @@
 
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bot, CalendarDays, Home, Pill, TrendingUp, User } from "lucide-react";
+import { CalendarDays, FlaskConical, Home, Pill, TrendingUp, User } from "lucide-react";
 
 const navItems = [
   { path: "/app", icon: Home, label: "Home" },
   { path: "/app/medications", icon: Pill, label: "Meds" },
   { path: "/app/appointments", icon: CalendarDays, label: "Citas" },
+  { path: "/app/laboratorios", icon: FlaskConical, label: "Labs" },
   { path: "/app/insights", icon: TrendingUp, label: "Insights" },
-  { path: "/app/chat", icon: Bot, label: "Asistente" },
   { path: "/app/profile", icon: User, label: "Perfil" },
 ];
 

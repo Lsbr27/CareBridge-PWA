@@ -55,6 +55,32 @@ function parsePositiveInt(value: string | null, fallback: number) {
   return parsed;
 }
 
+async function authenticateRequest(request: NextRequest, userId: string) {
+  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { ok: false as const, status: 401, error: "Missing bearer token" };
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return { ok: false as const, status: 401, error: "Invalid bearer token" };
+  }
+
+  try {
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin.auth.getUser(token);
+    if (error || !data.user) {
+      return { ok: false as const, status: 401, error: "Invalid session token" };
+    }
+    if (data.user.id !== userId) {
+      return { ok: false as const, status: 403, error: "Token user does not match userId" };
+    }
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const, status: 500, error: "Auth validation failed" };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get("userId");
   const metricParam = request.nextUrl.searchParams.get("metric");
@@ -67,6 +93,11 @@ export async function GET(request: NextRequest) {
 
   if (metricParam && !isValidMetric(metricParam)) {
     return NextResponse.json({ error: "Invalid metric filter" }, { status: 400 });
+  }
+
+  const auth = await authenticateRequest(request, userId);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -142,6 +173,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid or missing status" }, { status: 400 });
   }
 
+  const auth = await authenticateRequest(request, userId);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const nowIso = new Date().toISOString();
   const row = {
     profile_id: userId,
@@ -178,6 +214,11 @@ export async function POST(request: NextRequest) {
 
   if (!Array.isArray(samples) || samples.length === 0) {
     return NextResponse.json({ error: "samples must be a non-empty array" }, { status: 400 });
+  }
+
+  const auth = await authenticateRequest(request, userId);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   if (samples.length > MAX_SAMPLES) {

@@ -593,8 +593,14 @@ export function InsightsScreen() {
   useEffect(() => {
     if (!profile?.id) return;
     setAppleLoading(true);
-    fetch(`/api/health-sync/apple?userId=${profile.id}&limit=300&days=30`)
-      .then((r) => (r.ok ? r.json() : null))
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        const token = data.session?.access_token;
+        if (!token) return null;
+        return fetch(`/api/health-sync/apple?userId=${profile.id}&limit=300&days=30`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((r) => (r.ok ? r.json() : null));
+      })
       .then((data) => {
         setAppleSamples((data?.samples ?? []) as AppleHealthSample[]);
         setAppleConnection((data?.connection ?? null) as AppleConnection | null);
@@ -691,9 +697,16 @@ export function InsightsScreen() {
     if (!profile?.id) return;
     setAppleActionLoading(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+
       const r = await fetch("/api/health-sync/apple", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ userId: profile.id, status: nextStatus }),
       });
       const data = await r.json().catch(() => null);
@@ -1137,7 +1150,7 @@ export function InsightsScreen() {
         ) : exams.length === 0 ? (
           <GlassCard>
             <p className="text-sm text-slate-400 text-center py-3">
-              Aún no has guardado ningún examen. Usa el asistente para analizar uno.
+              Aún no has guardado ningún examen. Súbelo en Labs para analizarlo.
             </p>
           </GlassCard>
         ) : (
